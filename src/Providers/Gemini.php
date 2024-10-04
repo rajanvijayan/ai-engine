@@ -1,5 +1,5 @@
 <?php
-namespace AutoMemoirs\Providers;
+namespace AIEngine\Providers;
 
 class Gemini {
 
