@@ -1,0 +1,17 @@
+{
+    "name": "rajanvijayan/ai-engine",
+    "description": "A wrapper for Gemini, ChatGPT, and other AI tools.",
+    "type": "library",
+    "autoload": {
+        "psr-4": {
+            "AIEngine\\": "src/"
+        }
+    },
+    "require": {
+        "php": ">=7.4"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9"
+    },
+    "license": "MIT"
+}
