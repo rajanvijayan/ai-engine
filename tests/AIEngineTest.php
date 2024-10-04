@@ -5,12 +5,10 @@ use AIEngine\AIEngine;
 
 class AIEngineTest extends TestCase
 {
-    public function testAnswer()
+    public function testGenerateContent()
     {
-        $engine = new AIEngine();
-        $engine->config('dummy-api-key');
-
-        $response = $engine->answer('What is AI?');
+        $engine = new AIEngine( 'dummy-api-key' );
+        $response = $engine->generateContent('What is AI?');
         $this->assertEquals('Gemini\'s response to: What is AI?', $response);
     }
 }

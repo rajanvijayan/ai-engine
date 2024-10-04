@@ -15,9 +15,8 @@ composer require rajanvijayan/ai-engine
 
 use AIEngine\AIEngine;
 
-$ai = new AIEngine();
-$ai->config('your-gemini-api-key');
-$response = $ai->answer('What is AI?');
+$ai = new AIEngine( 'your-gemini-api-key' );
+$response = $ai->generateContent('What is AI?');
 
 echo $response;
 ```
