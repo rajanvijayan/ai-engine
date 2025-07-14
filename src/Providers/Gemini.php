@@ -11,10 +11,10 @@ class Gemini implements ProviderInterface {
      * Constructor.
      *
      * @param string $api_key The API key for authentication.
-     * @param string $model The Gemini model to use (default: gemini-pro).
+     * @param string $model The Gemini model to use (default: gemini-2.0-flash).
      * @param int $timeout Request timeout in seconds (default: 60).
      */
-    public function __construct($api_key, $model = 'gemini-pro', $timeout = 60) {
+    public function __construct($api_key, $model = 'gemini-2.0-flash', $timeout = 60) {
         $this->api_key = $api_key;
         $this->model = $model;
         $this->timeout = $timeout;
@@ -100,7 +100,7 @@ class Gemini implements ProviderInterface {
     }
 
     /**
-     * Fetch data from the Gemini API.
+     * Fetch data from the Gemini API using the new API format.
      *
      * @param string $prompt The prompt to send to the API.
      * @return array|string The response data or an error message.
@@ -119,22 +119,27 @@ class Gemini implements ProviderInterface {
         // Sanitize the prompt by removing harmful characters
         $prompt = htmlspecialchars($prompt, ENT_QUOTES, 'UTF-8');
     
-        $api_url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent?key={$this->api_key}";
+        // Updated API URL without query parameter
+        $api_url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent";
     
-        // Prepare the data for the API request
+        // Prepare the data for the API request with updated structure
         $data = array(
             'contents' => array(
-                'parts' => array(
-                    array(
-                        'text' => $prompt
+                array(
+                    'parts' => array(
+                        array(
+                            'text' => $prompt
+                        )
                     )
                 )
             )
         );
     
+        // Updated options with X-goog-api-key header
         $options = array(
             'http' => array(
-                'header'  => "Content-Type: application/json\r\n",
+                'header'  => "Content-Type: application/json\r\n" . 
+                           "X-goog-api-key: {$this->api_key}\r\n",
                 'method'  => 'POST',
                 'content' => json_encode($data),
                 'timeout' => $this->timeout

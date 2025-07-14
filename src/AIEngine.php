@@ -21,7 +21,7 @@ class AIEngine
     {
         $this->config = array_merge([
             'default_provider' => 'gemini',
-            'model' => 'gemini-pro',
+            'model' => 'gemini-2.0-flash',
             'timeout' => 60,
             'enable_logging' => false
         ], $config);
