@@ -29,7 +29,7 @@ class BasicUsage
     {
         // Enhanced usage with configuration
         $config = [
-            'model' => 'gemini-pro',
+            'model' => 'gemini-2.0-flash',
             'timeout' => 30,
             'enable_logging' => true
         ];
@@ -66,7 +66,7 @@ class BasicUsage
         $config = [
             'api_key' => 'your-api-key-here',
             'timeout' => 45,
-            'model' => 'gemini-pro'
+            'model' => 'gemini-2.0-flash'
         ];
         
         // Validate configuration
@@ -110,7 +110,7 @@ class BasicUsage
         
         // If provider supports model changes (like Gemini)
         if (method_exists($provider, 'setModel')) {
-            $provider->setModel('gemini-pro');
+            $provider->setModel('gemini-2.0-flash');
             echo "Model set to: " . $provider->getModel() . "\n";
         }
         
