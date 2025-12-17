@@ -1,11 +1,15 @@
 <?php
 namespace AIEngine\Providers;
 
+use AIEngine\Knowledge\KnowledgeBase;
+
 /**
  * Groq API Provider
  * 
  * Uses Groq's API to access Llama and other models with ultra-fast inference
  * Get your FREE API key from: https://console.groq.com
+ * 
+ * Supports Knowledge Base (RAG) for custom data
  */
 class Groq implements ProviderInterface {
 
@@ -15,6 +19,8 @@ class Groq implements ProviderInterface {
     protected $conversationHistory = [];
     protected $systemInstruction = null;
     protected $api_url = 'https://api.groq.com/openai/v1/chat/completions';
+    protected ?KnowledgeBase $knowledgeBase = null;
+    protected int $maxKnowledgeChars = 8000;
 
     /**
      * Constructor.
@@ -123,8 +129,9 @@ class Groq implements ProviderInterface {
         // Build messages array
         $messages = [];
         
-        if ($this->systemInstruction !== null) {
-            $messages[] = ['role' => 'system', 'content' => $this->systemInstruction];
+        $systemPrompt = $this->buildSystemPrompt();
+        if ($systemPrompt !== null) {
+            $messages[] = ['role' => 'system', 'content' => $systemPrompt];
         }
         
         $messages[] = ['role' => 'user', 'content' => $prompt];
@@ -155,10 +162,11 @@ class Groq implements ProviderInterface {
             'content' => $message
         ];
 
-        // Build messages with system instruction
+        // Build messages with system instruction and knowledge
         $messages = [];
-        if ($this->systemInstruction !== null) {
-            $messages[] = ['role' => 'system', 'content' => $this->systemInstruction];
+        $systemPrompt = $this->buildSystemPrompt();
+        if ($systemPrompt !== null) {
+            $messages[] = ['role' => 'system', 'content' => $systemPrompt];
         }
         $messages = array_merge($messages, $this->conversationHistory);
 
@@ -178,6 +186,84 @@ class Groq implements ProviderInterface {
         ];
 
         return $response;
+    }
+
+    /**
+     * Build the system prompt with knowledge base context.
+     *
+     * @return string|null The complete system prompt or null
+     */
+    protected function buildSystemPrompt(): ?string {
+        $parts = [];
+
+        // Add user's system instruction
+        if ($this->systemInstruction !== null) {
+            $parts[] = $this->systemInstruction;
+        }
+
+        // Add knowledge base context if available
+        if ($this->knowledgeBase !== null && !$this->knowledgeBase->isEmpty()) {
+            $knowledgeContext = $this->knowledgeBase->buildContext($this->maxKnowledgeChars);
+            if (!empty($knowledgeContext)) {
+                $parts[] = "\n" . $knowledgeContext;
+                $parts[] = "Answer questions based on the knowledge base above. If the answer is not in the knowledge base, say so.";
+            }
+        }
+
+        if (empty($parts)) {
+            return null;
+        }
+
+        return implode("\n\n", $parts);
+    }
+
+    /**
+     * Set the knowledge base for RAG.
+     *
+     * @param KnowledgeBase $knowledgeBase The knowledge base instance
+     * @return void
+     */
+    public function setKnowledgeBase(KnowledgeBase $knowledgeBase): void {
+        $this->knowledgeBase = $knowledgeBase;
+    }
+
+    /**
+     * Get the current knowledge base.
+     *
+     * @return KnowledgeBase|null The knowledge base or null
+     */
+    public function getKnowledgeBase(): ?KnowledgeBase {
+        return $this->knowledgeBase;
+    }
+
+    /**
+     * Check if a knowledge base is attached.
+     *
+     * @return bool True if knowledge base is set
+     */
+    public function hasKnowledgeBase(): bool {
+        return $this->knowledgeBase !== null && !$this->knowledgeBase->isEmpty();
+    }
+
+    /**
+     * Set maximum characters for knowledge context.
+     *
+     * @param int $maxChars Maximum characters
+     * @return void
+     */
+    public function setMaxKnowledgeChars(int $maxChars): void {
+        $this->maxKnowledgeChars = $maxChars;
+    }
+
+    /**
+     * Clear the knowledge base.
+     *
+     * @return void
+     */
+    public function clearKnowledgeBase(): void {
+        if ($this->knowledgeBase !== null) {
+            $this->knowledgeBase->clear();
+        }
     }
 
     /**

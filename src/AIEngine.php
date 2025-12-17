@@ -6,12 +6,14 @@ use AIEngine\Providers\Gemini;
 use AIEngine\Providers\MetaLlama;
 use AIEngine\Providers\Groq;
 use AIEngine\Providers\ProviderInterface;
+use AIEngine\Knowledge\KnowledgeBase;
 
 class AIEngine
 {
     protected $provider;
     protected $config;
     protected $logger;
+    protected ?KnowledgeBase $knowledgeBase = null;
 
     /**
      * Default models for each provider.
@@ -181,6 +183,188 @@ class AIEngine
         $this->provider->setSystemInstruction($instruction);
         $this->log("System instruction set");
     }
+
+    // ==========================================
+    // Knowledge Base Methods (RAG Support)
+    // ==========================================
+
+    /**
+     * Add knowledge from a URL.
+     * Currently only supported by Groq provider.
+     *
+     * @param string $url The URL to fetch and add to knowledge base
+     * @return array{success: bool, error?: string, title?: string}
+     */
+    public function addKnowledgeFromUrl(string $url): array
+    {
+        $this->ensureKnowledgeBase();
+        
+        $result = $this->knowledgeBase->addUrl($url);
+        
+        if ($result['success']) {
+            $this->log("Added knowledge from URL: {$url}");
+            $this->syncKnowledgeToProvider();
+        } else {
+            $this->log("Failed to add knowledge from URL: {$url} - " . ($result['error'] ?? 'Unknown error'), 'error');
+        }
+        
+        return $result;
+    }
+
+    /**
+     * Add knowledge from multiple URLs.
+     *
+     * @param array $urls Array of URLs to fetch
+     * @return array{success: int, failed: int, results: array}
+     */
+    public function addKnowledgeFromUrls(array $urls): array
+    {
+        $this->ensureKnowledgeBase();
+        
+        $result = $this->knowledgeBase->addUrls($urls);
+        
+        $this->log("Added knowledge from {$result['success']} URLs ({$result['failed']} failed)");
+        $this->syncKnowledgeToProvider();
+        
+        return $result;
+    }
+
+    /**
+     * Add raw text as knowledge.
+     *
+     * @param string $text The text content
+     * @param string $source Source identifier
+     * @param string|null $title Optional title
+     * @return bool True if added successfully
+     */
+    public function addKnowledgeText(string $text, string $source, ?string $title = null): bool
+    {
+        $this->ensureKnowledgeBase();
+        
+        $result = $this->knowledgeBase->addText($text, $source, $title);
+        
+        if ($result) {
+            $this->log("Added text knowledge from: {$source}");
+            $this->syncKnowledgeToProvider();
+        }
+        
+        return $result;
+    }
+
+    /**
+     * Get the knowledge base instance.
+     *
+     * @return KnowledgeBase
+     */
+    public function getKnowledgeBase(): KnowledgeBase
+    {
+        $this->ensureKnowledgeBase();
+        return $this->knowledgeBase;
+    }
+
+    /**
+     * Get knowledge base summary.
+     *
+     * @return array{count: int, sources: array, totalChars: int}
+     */
+    public function getKnowledgeSummary(): array
+    {
+        if ($this->knowledgeBase === null) {
+            return ['count' => 0, 'sources' => [], 'totalChars' => 0];
+        }
+        return $this->knowledgeBase->getSummary();
+    }
+
+    /**
+     * Clear all knowledge.
+     *
+     * @return void
+     */
+    public function clearKnowledge(): void
+    {
+        if ($this->knowledgeBase !== null) {
+            $this->knowledgeBase->clear();
+            $this->log("Knowledge base cleared");
+        }
+        
+        // Clear from provider if supported
+        if ($this->provider instanceof Groq) {
+            $this->provider->clearKnowledgeBase();
+        }
+    }
+
+    /**
+     * Check if knowledge base has content.
+     *
+     * @return bool True if knowledge base has documents
+     */
+    public function hasKnowledge(): bool
+    {
+        return $this->knowledgeBase !== null && !$this->knowledgeBase->isEmpty();
+    }
+
+    /**
+     * Save knowledge base to file.
+     *
+     * @param string $path File path
+     * @return bool True if saved successfully
+     */
+    public function saveKnowledge(string $path): bool
+    {
+        if ($this->knowledgeBase === null) {
+            return false;
+        }
+        return $this->knowledgeBase->save($path);
+    }
+
+    /**
+     * Load knowledge base from file.
+     *
+     * @param string $path File path
+     * @return bool True if loaded successfully
+     */
+    public function loadKnowledge(string $path): bool
+    {
+        $this->ensureKnowledgeBase();
+        
+        $result = $this->knowledgeBase->load($path);
+        
+        if ($result) {
+            $this->log("Loaded knowledge from: {$path}");
+            $this->syncKnowledgeToProvider();
+        }
+        
+        return $result;
+    }
+
+    /**
+     * Ensure knowledge base is initialized.
+     *
+     * @return void
+     */
+    protected function ensureKnowledgeBase(): void
+    {
+        if ($this->knowledgeBase === null) {
+            $this->knowledgeBase = new KnowledgeBase();
+        }
+    }
+
+    /**
+     * Sync knowledge base to provider.
+     *
+     * @return void
+     */
+    protected function syncKnowledgeToProvider(): void
+    {
+        // Currently only Groq supports knowledge base
+        if ($this->provider instanceof Groq && $this->knowledgeBase !== null) {
+            $this->provider->setKnowledgeBase($this->knowledgeBase);
+        }
+    }
+
+    // ==========================================
+    // Provider Management
+    // ==========================================
 
     /**
      * Set a new provider.
