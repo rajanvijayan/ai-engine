@@ -28,6 +28,11 @@ Thumbs.db
 
 package-lock.json
 composer.lock
-.phpunit.result.cache
 
+# PHPUnit
+.phpunit.result.cache
+.phpunit.cache/
+/coverage/
+
+# API Keys
 *.ai-key
