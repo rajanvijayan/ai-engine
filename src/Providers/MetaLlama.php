@@ -1,22 +1,29 @@
 <?php
 namespace AIEngine\Providers;
 
-class Gemini implements ProviderInterface {
+/**
+ * Meta Llama API Provider
+ * 
+ * Uses Meta's official Llama API (OpenAI-compatible format)
+ * Get your API key from: https://llama.meta.com
+ */
+class MetaLlama implements ProviderInterface {
 
     protected $api_key;
     protected $model;
     protected $timeout;
     protected $conversationHistory = [];
     protected $systemInstruction = null;
+    protected $api_url = 'https://api.llama.meta.com/v1/chat/completions';
 
     /**
      * Constructor.
      *
      * @param string $api_key The API key for authentication.
-     * @param string $model The Gemini model to use (default: gemini-2.0-flash).
+     * @param string $model The Llama model to use (default: Llama-4-Maverick-17B-128E-Instruct-FP8).
      * @param int $timeout Request timeout in seconds (default: 60).
      */
-    public function __construct($api_key, $model = 'gemini-2.0-flash', $timeout = 60) {
+    public function __construct($api_key, $model = 'Llama-4-Maverick-17B-128E-Instruct-FP8', $timeout = 60) {
         $this->api_key = $api_key;
         $this->model = $model;
         $this->timeout = $timeout;
@@ -37,7 +44,7 @@ class Gemini implements ProviderInterface {
      * @return string The provider name
      */
     public function getName() {
-        return 'Gemini';
+        return 'MetaLlama';
     }
 
     /**
@@ -68,24 +75,24 @@ class Gemini implements ProviderInterface {
     }
 
     /**
-     * Extract text from the Gemini API response.
+     * Extract text from the OpenAI-compatible API response.
      *
      * @param string $json The JSON response from the API.
      * @return string|null The extracted text or null if not found.
      */
-    public function getTextFromParts($json) {
+    protected function getTextFromResponse($json) {
         $data = json_decode($json, true);
 
-        if (isset($data['candidates']) && is_array($data['candidates'])) {
-            foreach ($data['candidates'] as $candidate) {
-                if (isset($candidate['content']['parts']) && is_array($candidate['content']['parts'])) {
-                    foreach ($candidate['content']['parts'] as $part) {
-                        if (isset($part['text'])) {
-                            return $part['text'];
-                        }
-                    }
-                }
+        if (isset($data['choices']) && is_array($data['choices']) && !empty($data['choices'])) {
+            $choice = $data['choices'][0];
+            if (isset($choice['message']['content'])) {
+                return $choice['message']['content'];
             }
+        }
+
+        // Check for error in response
+        if (isset($data['error'])) {
+            return null;
         }
 
         return null;
@@ -102,7 +109,7 @@ class Gemini implements ProviderInterface {
     }
 
     /**
-     * Fetch data from the Gemini API using the new API format.
+     * Generate content using a single prompt (no history).
      *
      * @param string $prompt The prompt to send to the API.
      * @return array|string The response data or an error message.
@@ -118,44 +125,16 @@ class Gemini implements ProviderInterface {
             return ['error' => 'Invalid prompt: must be a non-empty string under 30000 characters'];
         }
 
-        // Sanitize the prompt by removing harmful characters
-        $prompt = htmlspecialchars($prompt, ENT_QUOTES, 'UTF-8');
-    
-        // Updated API URL without query parameter
-        $api_url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent";
-    
-        // Prepare the data for the API request with updated structure
-        $data = array(
-            'contents' => array(
-                array(
-                    'parts' => array(
-                        array(
-                            'text' => $prompt
-                        )
-                    )
-                )
-            )
-        );
-    
-        // Updated options with X-goog-api-key header
-        $options = array(
-            'http' => array(
-                'header'  => "Content-Type: application/json\r\n" . 
-                           "X-goog-api-key: {$this->api_key}\r\n",
-                'method'  => 'POST',
-                'content' => json_encode($data),
-                'timeout' => $this->timeout
-            )
-        );
-    
-        $context  = stream_context_create($options);
-        $response = @file_get_contents($api_url, false, $context);
-    
-        if ($response === FALSE) {
-            return ['error' => 'Error contacting API'];
+        // Build messages array
+        $messages = [];
+        
+        if ($this->systemInstruction !== null) {
+            $messages[] = ['role' => 'system', 'content' => $this->systemInstruction];
         }
-    
-        return $this->getTextFromParts($response);
+        
+        $messages[] = ['role' => 'user', 'content' => $prompt];
+
+        return $this->makeApiRequest($messages);
     }
 
     /**
@@ -175,17 +154,21 @@ class Gemini implements ProviderInterface {
             return ['error' => 'Invalid message: must be a non-empty string under 30000 characters'];
         }
 
-        // Sanitize the message
-        $message = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
-
         // Add user message to history
         $this->conversationHistory[] = [
             'role' => 'user',
-            'parts' => [['text' => $message]]
+            'content' => $message
         ];
 
-        // Make API request with full conversation history
-        $response = $this->makeConversationRequest();
+        // Build messages with system instruction
+        $messages = [];
+        if ($this->systemInstruction !== null) {
+            $messages[] = ['role' => 'system', 'content' => $this->systemInstruction];
+        }
+        $messages = array_merge($messages, $this->conversationHistory);
+
+        // Make API request
+        $response = $this->makeApiRequest($messages);
 
         if (is_array($response) && isset($response['error'])) {
             // Remove the failed user message from history
@@ -195,51 +178,54 @@ class Gemini implements ProviderInterface {
 
         // Add assistant response to history
         $this->conversationHistory[] = [
-            'role' => 'model',
-            'parts' => [['text' => $response]]
+            'role' => 'assistant',
+            'content' => $response
         ];
 
         return $response;
     }
 
     /**
-     * Make API request with conversation history.
+     * Make API request to Meta Llama API.
      *
+     * @param array $messages The messages array
      * @return string|array The response text or error array
      */
-    protected function makeConversationRequest() {
-        $api_url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent";
-
-        // Prepare the data with conversation history
+    protected function makeApiRequest($messages) {
         $data = [
-            'contents' => $this->conversationHistory
+            'model' => $this->model,
+            'messages' => $messages
         ];
-
-        // Add system instruction if set
-        if ($this->systemInstruction !== null) {
-            $data['systemInstruction'] = [
-                'parts' => [['text' => $this->systemInstruction]]
-            ];
-        }
 
         $options = [
             'http' => [
                 'header'  => "Content-Type: application/json\r\n" . 
-                           "X-goog-api-key: {$this->api_key}\r\n",
+                           "Authorization: Bearer {$this->api_key}\r\n",
                 'method'  => 'POST',
                 'content' => json_encode($data),
-                'timeout' => $this->timeout
+                'timeout' => $this->timeout,
+                'ignore_errors' => true
             ]
         ];
 
-        $context  = stream_context_create($options);
-        $response = @file_get_contents($api_url, false, $context);
+        $context = stream_context_create($options);
+        $response = @file_get_contents($this->api_url, false, $context);
 
         if ($response === FALSE) {
             return ['error' => 'Error contacting API'];
         }
 
-        return $this->getTextFromParts($response);
+        $text = $this->getTextFromResponse($response);
+        
+        if ($text === null) {
+            $errorData = json_decode($response, true);
+            if (isset($errorData['error']['message'])) {
+                return ['error' => $errorData['error']['message']];
+            }
+            return ['error' => 'Failed to parse API response'];
+        }
+
+        return $text;
     }
 
     /**
@@ -282,15 +268,30 @@ class Gemini implements ProviderInterface {
     /**
      * Add a message to history without sending (useful for restoring conversations).
      *
-     * @param string $role The role ('user' or 'model')
+     * @param string $role The role ('user' or 'assistant')
      * @param string $text The message text
      * @return void
      */
     public function addToHistory($role, $text) {
         $this->conversationHistory[] = [
             'role' => $role,
-            'parts' => [['text' => $text]]
+            'content' => $text
         ];
     }
 
+    /**
+     * Get available models for Meta Llama API.
+     *
+     * @return array List of available models
+     */
+    public static function getAvailableModels() {
+        return [
+            'Llama-4-Maverick-17B-128E-Instruct-FP8',
+            'Llama-4-Scout-17B-16E-Instruct',
+            'Llama-3.3-70B-Instruct',
+            'Llama-3.2-3B-Instruct',
+            'Llama-3.2-1B-Instruct',
+        ];
+    }
 }
+
