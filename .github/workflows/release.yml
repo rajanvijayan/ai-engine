@@ -1,0 +1,215 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Is this a pre-release?'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    name: Build Release Package
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "tag=v${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate version in composer.json
+        run: |
+          echo "Building release version: ${{ steps.version.outputs.version }}"
+
+      - name: Install production dependencies only
+        run: composer install --prefer-dist --no-dev --optimize-autoloader --no-progress
+
+      - name: Create release directory
+        run: mkdir -p release/ai-engine
+
+      - name: Copy release files
+        run: |
+          # Copy source files
+          cp -r src/ release/ai-engine/
+          
+          # Copy essential files
+          cp composer.json release/ai-engine/
+          cp LICENSE release/ai-engine/
+          cp README.md release/ai-engine/
+          cp CHANGELOG.md release/ai-engine/
+          cp CONTRIBUTING.md release/ai-engine/
+          
+          # Copy vendor (production only)
+          cp -r vendor/ release/ai-engine/
+
+      - name: Remove unwanted files from vendor
+        run: |
+          cd release/ai-engine
+          
+          # Remove development files from vendor
+          find vendor/ -type f -name "*.md" -delete
+          find vendor/ -type f -name "*.txt" -delete
+          find vendor/ -type f -name "*.rst" -delete
+          find vendor/ -type f -name "CHANGELOG*" -delete
+          find vendor/ -type f -name "UPGRADING*" -delete
+          find vendor/ -type f -name "CONTRIBUTING*" -delete
+          find vendor/ -type f -name "phpunit.xml*" -delete
+          find vendor/ -type f -name "phpcs.xml*" -delete
+          find vendor/ -type f -name "psalm*.xml" -delete
+          find vendor/ -type f -name ".php_cs*" -delete
+          find vendor/ -type f -name ".php-cs-fixer*" -delete
+          find vendor/ -type f -name "Makefile" -delete
+          find vendor/ -type f -name ".travis.yml" -delete
+          find vendor/ -type f -name ".scrutinizer.yml" -delete
+          find vendor/ -type f -name "appveyor.yml" -delete
+          find vendor/ -type f -name "infection.json*" -delete
+          
+          # Remove test directories from vendor
+          find vendor/ -type d -name "test" -exec rm -rf {} + 2>/dev/null || true
+          find vendor/ -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true
+          find vendor/ -type d -name "Test" -exec rm -rf {} + 2>/dev/null || true
+          find vendor/ -type d -name "Tests" -exec rm -rf {} + 2>/dev/null || true
+          find vendor/ -type d -name "docs" -exec rm -rf {} + 2>/dev/null || true
+          find vendor/ -type d -name "doc" -exec rm -rf {} + 2>/dev/null || true
+          find vendor/ -type d -name "examples" -exec rm -rf {} + 2>/dev/null || true
+          
+          # Remove git directories
+          find vendor/ -type d -name ".git" -exec rm -rf {} + 2>/dev/null || true
+          
+          # Remove GitHub directories
+          find vendor/ -type d -name ".github" -exec rm -rf {} + 2>/dev/null || true
+
+      - name: List excluded files (for debugging)
+        run: |
+          echo "Files NOT included in release:"
+          echo "- tests/"
+          echo "- test.php"
+          echo "- test.ai-key"
+          echo "- phpunit.xml"
+          echo "- .github/"
+          echo "- vendor/**/tests/"
+          echo "- Various documentation and config files from vendor/"
+
+      - name: Create ZIP archive
+        run: |
+          cd release
+          zip -r ../ai-engine-${{ steps.version.outputs.version }}.zip ai-engine/
+
+      - name: Create TAR.GZ archive
+        run: |
+          cd release
+          tar -czvf ../ai-engine-${{ steps.version.outputs.version }}.tar.gz ai-engine/
+
+      - name: Generate release notes from CHANGELOG
+        id: changelog
+        run: |
+          # Extract the latest version's changes from CHANGELOG.md
+          # This gets content between the first two version headers
+          awk '/^## \[/{if(p) exit; p=1; next} p' CHANGELOG.md > release_notes.md
+          
+          if [ ! -s release_notes.md ]; then
+            echo "No specific changelog entry found, using default message."
+            echo "See CHANGELOG.md for details." > release_notes.md
+          fi
+          
+          echo "Release notes:"
+          cat release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: AI Engine ${{ steps.version.outputs.version }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease || false }}
+          files: |
+            ai-engine-${{ steps.version.outputs.version }}.zip
+            ai-engine-${{ steps.version.outputs.version }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-packages
+          path: |
+            ai-engine-${{ steps.version.outputs.version }}.zip
+            ai-engine-${{ steps.version.outputs.version }}.tar.gz
+          retention-days: 30
+
+  verify:
+    name: Verify Release Package
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-packages
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: Extract and verify ZIP
+        run: |
+          unzip ai-engine-*.zip -d verify-zip
+          
+          echo "=== Verifying ZIP contents ==="
+          
+          # Check required files exist
+          for file in "src/AIEngine.php" "composer.json" "LICENSE" "README.md"; do
+            if [ -f "verify-zip/ai-engine/$file" ]; then
+              echo "✅ $file exists"
+            else
+              echo "❌ $file is missing!"
+              exit 1
+            fi
+          done
+          
+          # Check unwanted files are removed
+          for file in "tests" "test.php" "phpunit.xml" ".github"; do
+            if [ -e "verify-zip/ai-engine/$file" ]; then
+              echo "❌ $file should not be in release!"
+              exit 1
+            else
+              echo "✅ $file correctly excluded"
+            fi
+          done
+          
+          # Verify autoloader works
+          cd verify-zip/ai-engine
+          php -r "require 'vendor/autoload.php'; echo 'Autoloader works!\\n';"
+          
+          echo "=== Verification complete ==="
+
