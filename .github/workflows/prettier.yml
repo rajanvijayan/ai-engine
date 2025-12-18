@@ -1,0 +1,77 @@
+name: Prettier Check
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  prettier:
+    name: Prettier Format Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Prettier
+        run: npm install -g prettier
+
+      - name: Check formatting with Prettier
+        run: |
+          prettier --check "**/*.json" "**/*.md" "**/*.yml" "**/*.yaml" \
+            --ignore-path .gitignore \
+            --ignore-unknown \
+            || (echo "::error::Some files are not formatted. Run 'prettier --write .' locally and commit the changes." && exit 1)
+
+  json-lint:
+    name: JSON Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate JSON files
+        run: |
+          echo "Validating JSON files..."
+          find . -name "*.json" -not -path "./vendor/*" -not -path "./node_modules/*" | while read file; do
+            echo "Checking: $file"
+            if ! python3 -m json.tool "$file" > /dev/null 2>&1; then
+              echo "::error file=$file::Invalid JSON syntax"
+              exit 1
+            fi
+          done
+          echo "All JSON files are valid!"
+
+  markdown-lint:
+    name: Markdown Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install markdownlint-cli
+        run: npm install -g markdownlint-cli
+
+      - name: Run markdownlint
+        run: |
+          markdownlint "**/*.md" \
+            --ignore vendor \
+            --ignore node_modules \
+            --disable MD013 MD033 MD041 \
+            || echo "::warning::Some markdown issues found (non-blocking)"
+        continue-on-error: true
+
