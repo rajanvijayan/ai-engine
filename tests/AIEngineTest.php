@@ -4,15 +4,12 @@ declare(strict_types=1);
 
 namespace AIEngine\Tests;
 
-use PHPUnit\Framework\TestCase;
 use AIEngine\AIEngine;
-use AIEngine\Response;
-use AIEngine\Providers\Gemini;
-use AIEngine\Providers\MetaLlama;
-use AIEngine\Providers\Groq;
 use AIEngine\Exceptions\ConfigurationException;
-use AIEngine\Exceptions\ApiException;
-use AIEngine\Exceptions\AIEngineException;
+use AIEngine\Providers\Gemini;
+use AIEngine\Providers\Groq;
+use AIEngine\Providers\MetaLlama;
+use PHPUnit\Framework\TestCase;
 
 class AIEngineTest extends TestCase
 {
@@ -110,7 +107,7 @@ class AIEngineTest extends TestCase
             'provider' => 'gemini',
             'model' => 'gemini-2.5-pro',
             'timeout' => 120,
-            'enable_logging' => true
+            'enable_logging' => true,
         ];
 
         $engine = new AIEngine($this->dummyApiKey, $config);

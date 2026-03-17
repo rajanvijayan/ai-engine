@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace AIEngine;
 
-use AIEngine\Providers\Gemini;
-use AIEngine\Providers\MetaLlama;
-use AIEngine\Providers\Groq;
-use AIEngine\Providers\ProviderInterface;
-use AIEngine\Knowledge\KnowledgeBase;
 use AIEngine\Exceptions\AIEngineException;
-use AIEngine\Exceptions\ConfigurationException;
 use AIEngine\Exceptions\ApiException;
+use AIEngine\Exceptions\ConfigurationException;
+use AIEngine\Knowledge\KnowledgeBase;
+use AIEngine\Providers\Gemini;
+use AIEngine\Providers\Groq;
+use AIEngine\Providers\MetaLlama;
+use AIEngine\Providers\ProviderInterface;
 
 class AIEngine
 {
@@ -46,7 +46,7 @@ class AIEngine
             'provider' => 'gemini',
             'model' => null,
             'timeout' => 60,
-            'enable_logging' => false
+            'enable_logging' => false,
         ], $config);
 
         $provider = strtolower((string) $this->config['provider']);
@@ -104,7 +104,7 @@ class AIEngine
             $this->syncKnowledgeToProvider();
         }
 
-        $this->log("Switched to provider: " . $this->provider->getName());
+        $this->log('Switched to provider: ' . $this->provider->getName());
     }
 
     /**
@@ -115,13 +115,13 @@ class AIEngine
      */
     public function generateContent(string $prompt): Response
     {
-        $this->log("Generating content with provider: " . $this->provider->getName());
+        $this->log('Generating content with provider: ' . $this->provider->getName());
 
         try {
             $result = $this->provider->generateContent($prompt);
             return $result;
         } catch (AIEngineException $e) {
-            $this->log("Error: " . $e->getMessage(), 'error');
+            $this->log('Error: ' . $e->getMessage(), 'error');
             throw $e;
         }
     }
@@ -134,13 +134,13 @@ class AIEngine
      */
     public function chat(string $message): Response
     {
-        $this->log("Sending chat message with provider: " . $this->provider->getName());
+        $this->log('Sending chat message with provider: ' . $this->provider->getName());
 
         try {
             $result = $this->provider->sendMessage($message);
             return $result;
         } catch (AIEngineException $e) {
-            $this->log("Error: " . $e->getMessage(), 'error');
+            $this->log('Error: ' . $e->getMessage(), 'error');
             throw $e;
         }
     }
@@ -151,7 +151,7 @@ class AIEngine
     public function newConversation(): void
     {
         $this->provider->startNewConversation();
-        $this->log("Started new conversation");
+        $this->log('Started new conversation');
     }
 
     /**
@@ -168,7 +168,7 @@ class AIEngine
     public function setSystemInstruction(string $instruction): void
     {
         $this->provider->setSystemInstruction($instruction);
-        $this->log("System instruction set");
+        $this->log('System instruction set');
     }
 
     // ==========================================
@@ -260,7 +260,7 @@ class AIEngine
     {
         if ($this->knowledgeBase !== null) {
             $this->knowledgeBase->clear();
-            $this->log("Knowledge base cleared");
+            $this->log('Knowledge base cleared');
         }
 
         $this->provider->setKnowledgeBase(null);
@@ -332,7 +332,7 @@ class AIEngine
     public function setProvider(ProviderInterface $provider): void
     {
         $this->provider = $provider;
-        $this->log("Provider changed to: " . $provider->getName());
+        $this->log('Provider changed to: ' . $provider->getName());
     }
 
     /**
@@ -405,7 +405,7 @@ class AIEngine
             return;
         }
 
-        if ($this->logger !== null && is_callable($this->logger)) {
+        if ($this->logger !== null) {
             call_user_func($this->logger, $message, $level);
         } else {
             $timestamp = date('Y-m-d H:i:s');

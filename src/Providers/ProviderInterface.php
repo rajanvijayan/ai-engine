@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace AIEngine\Providers;
 
-use AIEngine\Response;
 use AIEngine\Knowledge\KnowledgeBase;
+use AIEngine\Response;
 
 interface ProviderInterface
 {

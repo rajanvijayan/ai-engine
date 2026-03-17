@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace AIEngine\Providers;
 
-use AIEngine\Response;
-use AIEngine\Knowledge\KnowledgeBase;
-use AIEngine\Exceptions\ConfigurationException;
 use AIEngine\Exceptions\ApiException;
+use AIEngine\Exceptions\ConfigurationException;
+use AIEngine\Knowledge\KnowledgeBase;
+use AIEngine\Response;
 
 class Gemini implements ProviderInterface
 {
@@ -28,7 +28,7 @@ class Gemini implements ProviderInterface
 
     public function isConfigured(): bool
     {
-        return !empty($this->api_key) && is_string($this->api_key);
+        return !empty($this->api_key);
     }
 
     public function getName(): string
@@ -108,7 +108,7 @@ class Gemini implements ProviderInterface
             $knowledgeContext = $this->knowledgeBase->buildContext($this->maxKnowledgeChars);
             if (!empty($knowledgeContext)) {
                 $parts[] = "\n" . $knowledgeContext;
-                $parts[] = "Answer questions based on the knowledge base above. If the answer is not in the knowledge base, say so.";
+                $parts[] = 'Answer questions based on the knowledge base above. If the answer is not in the knowledge base, say so.';
             }
         }
 
@@ -137,28 +137,28 @@ class Gemini implements ProviderInterface
             'contents' => [
                 [
                     'parts' => [
-                        ['text' => $prompt]
-                    ]
-                ]
-            ]
+                        ['text' => $prompt],
+                    ],
+                ],
+            ],
         ];
 
         $systemInstruction = $this->buildSystemInstruction();
         if ($systemInstruction !== null) {
             $data['systemInstruction'] = [
-                'parts' => [['text' => $systemInstruction]]
+                'parts' => [['text' => $systemInstruction]],
             ];
         }
 
         $options = [
             'http' => [
-                'header'  => "Content-Type: application/json\r\n" .
-                           "X-goog-api-key: {$this->api_key}\r\n",
+                'header'  => "Content-Type: application/json\r\n"
+                           . "X-goog-api-key: {$this->api_key}\r\n",
                 'method'  => 'POST',
                 'content' => json_encode($data),
                 'timeout' => $this->timeout,
-                'ignore_errors' => true
-            ]
+                'ignore_errors' => true,
+            ],
         ];
 
         $context = stream_context_create($options);
@@ -208,7 +208,7 @@ class Gemini implements ProviderInterface
 
         $this->conversationHistory[] = [
             'role' => 'user',
-            'parts' => [['text' => $message]]
+            'parts' => [['text' => $message]],
         ];
 
         try {
@@ -220,7 +220,7 @@ class Gemini implements ProviderInterface
 
         $this->conversationHistory[] = [
             'role' => 'model',
-            'parts' => [['text' => $response->getText()]]
+            'parts' => [['text' => $response->getText()]],
         ];
 
         return $response;
@@ -231,25 +231,25 @@ class Gemini implements ProviderInterface
         $api_url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent";
 
         $data = [
-            'contents' => $this->conversationHistory
+            'contents' => $this->conversationHistory,
         ];
 
         $systemInstruction = $this->buildSystemInstruction();
         if ($systemInstruction !== null) {
             $data['systemInstruction'] = [
-                'parts' => [['text' => $systemInstruction]]
+                'parts' => [['text' => $systemInstruction]],
             ];
         }
 
         $options = [
             'http' => [
-                'header'  => "Content-Type: application/json\r\n" .
-                           "X-goog-api-key: {$this->api_key}\r\n",
+                'header'  => "Content-Type: application/json\r\n"
+                           . "X-goog-api-key: {$this->api_key}\r\n",
                 'method'  => 'POST',
                 'content' => json_encode($data),
                 'timeout' => $this->timeout,
-                'ignore_errors' => true
-            ]
+                'ignore_errors' => true,
+            ],
         ];
 
         $context = stream_context_create($options);
@@ -309,7 +309,7 @@ class Gemini implements ProviderInterface
     {
         $this->conversationHistory[] = [
             'role' => $role,
-            'parts' => [['text' => $text]]
+            'parts' => [['text' => $text]],
         ];
     }
 

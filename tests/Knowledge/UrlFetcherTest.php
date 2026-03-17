@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace AIEngine\Tests\Knowledge;
 
-use PHPUnit\Framework\TestCase;
 use AIEngine\Knowledge\UrlFetcher;
+use PHPUnit\Framework\TestCase;
 
 class UrlFetcherTest extends TestCase
 {

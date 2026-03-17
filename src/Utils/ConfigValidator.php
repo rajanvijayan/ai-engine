@@ -17,9 +17,9 @@ class ConfigValidator
     /**
      * Validate timeout value.
      *
-     * @param int|float $timeout The timeout to validate
+     * @param mixed $timeout The timeout to validate
      */
-    public static function isValidTimeout($timeout): bool
+    public static function isValidTimeout(mixed $timeout): bool
     {
         return is_numeric($timeout) && $timeout > 0 && $timeout <= 300;
     }

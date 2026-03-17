@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace AIEngine\Tests\Exceptions;
 
-use PHPUnit\Framework\TestCase;
 use AIEngine\Exceptions\AIEngineException;
-use AIEngine\Exceptions\ConfigurationException;
 use AIEngine\Exceptions\ApiException;
+use AIEngine\Exceptions\ConfigurationException;
+use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
 class ExceptionTest extends TestCase

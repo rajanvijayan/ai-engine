@@ -31,7 +31,7 @@ class UrlFetcher
             return [
                 'success' => false,
                 'error' => 'Invalid URL format',
-                'url' => $url
+                'url' => $url,
             ];
         }
 
@@ -41,7 +41,7 @@ class UrlFetcher
             return [
                 'success' => false,
                 'error' => 'Failed to fetch URL content',
-                'url' => $url
+                'url' => $url,
             ];
         }
 
@@ -52,7 +52,7 @@ class UrlFetcher
             return [
                 'success' => false,
                 'error' => 'No text content found in URL',
-                'url' => $url
+                'url' => $url,
             ];
         }
 
@@ -60,7 +60,7 @@ class UrlFetcher
             'success' => true,
             'url' => $url,
             'title' => $title,
-            'content' => $content
+            'content' => $content,
         ];
     }
 
@@ -86,19 +86,19 @@ class UrlFetcher
     {
         $options = [
             'http' => [
-                'header' => "User-Agent: {$this->userAgent}\r\n" .
-                           "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n" .
-                           "Accept-Language: en-US,en;q=0.5\r\n",
+                'header' => "User-Agent: {$this->userAgent}\r\n"
+                           . "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n"
+                           . "Accept-Language: en-US,en;q=0.5\r\n",
                 'method' => 'GET',
                 'timeout' => $this->timeout,
                 'follow_location' => true,
                 'max_redirects' => 5,
-                'ignore_errors' => true
+                'ignore_errors' => true,
             ],
             'ssl' => [
                 'verify_peer' => true,
-                'verify_peer_name' => true
-            ]
+                'verify_peer_name' => true,
+            ],
         ];
 
         $context = stream_context_create($options);
@@ -178,13 +178,13 @@ class UrlFetcher
 
         $metadata['title'] = $this->extractTitle($html);
 
-        if (preg_match('/<meta[^>]*\bname=["\']description["\'][^>]*\bcontent=["\']([^"\']*)["\'][^>]*>/i', $html, $matches) ||
-            preg_match('/<meta[^>]*\bcontent=["\']([^"\']*)["\'][^>]*\bname=["\']description["\'][^>]*>/i', $html, $matches)) {
+        if (preg_match('/<meta[^>]*\bname=["\']description["\'][^>]*\bcontent=["\']([^"\']*)["\'][^>]*>/i', $html, $matches)
+            || preg_match('/<meta[^>]*\bcontent=["\']([^"\']*)["\'][^>]*\bname=["\']description["\'][^>]*>/i', $html, $matches)) {
             $metadata['description'] = html_entity_decode(trim($matches[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         }
 
-        if (preg_match('/<meta[^>]*\bname=["\']keywords["\'][^>]*\bcontent=["\']([^"\']*)["\'][^>]*>/i', $html, $matches) ||
-            preg_match('/<meta[^>]*\bcontent=["\']([^"\']*)["\'][^>]*\bname=["\']keywords["\'][^>]*>/i', $html, $matches)) {
+        if (preg_match('/<meta[^>]*\bname=["\']keywords["\'][^>]*\bcontent=["\']([^"\']*)["\'][^>]*>/i', $html, $matches)
+            || preg_match('/<meta[^>]*\bcontent=["\']([^"\']*)["\'][^>]*\bname=["\']keywords["\'][^>]*>/i', $html, $matches)) {
             $metadata['keywords'] = html_entity_decode(trim($matches[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         }
 

@@ -35,7 +35,7 @@ class KnowledgeBase
         if (!$result['success']) {
             return [
                 'success' => false,
-                'error' => $result['error'] ?? 'Failed to fetch URL'
+                'error' => $result['error'] ?? 'Failed to fetch URL',
             ];
         }
 
@@ -43,12 +43,12 @@ class KnowledgeBase
             'source' => $url,
             'title' => $result['title'] ?? null,
             'content' => $result['content'],
-            'addedAt' => date('Y-m-d H:i:s')
+            'addedAt' => date('Y-m-d H:i:s'),
         ];
 
         return [
             'success' => true,
-            'title' => $result['title'] ?? null
+            'title' => $result['title'] ?? null,
         ];
     }
 
@@ -77,7 +77,7 @@ class KnowledgeBase
         return [
             'success' => $success,
             'failed' => $failed,
-            'results' => $results
+            'results' => $results,
         ];
     }
 
@@ -94,7 +94,7 @@ class KnowledgeBase
             'source' => $source,
             'title' => $title,
             'content' => trim($text),
-            'addedAt' => date('Y-m-d H:i:s')
+            'addedAt' => date('Y-m-d H:i:s'),
         ];
 
         return true;
@@ -141,7 +141,7 @@ class KnowledgeBase
         }
 
         $parts = [];
-        $parts[] = "=== KNOWLEDGE BASE ===";
+        $parts[] = '=== KNOWLEDGE BASE ===';
         $parts[] = "Use the following information to answer questions:\n";
 
         $totalChars = 0;
@@ -149,15 +149,15 @@ class KnowledgeBase
 
         foreach ($this->documents as $index => $doc) {
             $docParts = [];
-            $docParts[] = "--- Document " . ($index + 1) . " ---";
+            $docParts[] = '--- Document ' . ($index + 1) . ' ---';
 
             if ($doc['title']) {
-                $docParts[] = "Title: " . $doc['title'];
+                $docParts[] = 'Title: ' . $doc['title'];
             }
-            $docParts[] = "Source: " . $doc['source'];
-            $docParts[] = "";
+            $docParts[] = 'Source: ' . $doc['source'];
+            $docParts[] = '';
             $docParts[] = $doc['content'];
-            $docParts[] = "";
+            $docParts[] = '';
 
             $docText = implode("\n", $docParts);
             $docChars = strlen($docText);
@@ -192,7 +192,7 @@ class KnowledgeBase
             $sources[] = [
                 'source' => $doc['source'],
                 'title' => $doc['title'],
-                'chars' => strlen($doc['content'])
+                'chars' => strlen($doc['content']),
             ];
             $totalChars += strlen($doc['content']);
         }
@@ -200,7 +200,7 @@ class KnowledgeBase
         return [
             'count' => count($this->documents),
             'sources' => $sources,
-            'totalChars' => $totalChars
+            'totalChars' => $totalChars,
         ];
     }
 
@@ -209,7 +209,7 @@ class KnowledgeBase
         $data = json_encode([
             'version' => '1.0',
             'savedAt' => date('Y-m-d H:i:s'),
-            'documents' => $this->documents
+            'documents' => $this->documents,
         ], JSON_PRETTY_PRINT);
 
         if ($data === false) {

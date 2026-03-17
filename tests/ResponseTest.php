@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace AIEngine\Tests;
 
-use PHPUnit\Framework\TestCase;
 use AIEngine\Response;
+use PHPUnit\Framework\TestCase;
 
 class ResponseTest extends TestCase
 {

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace AIEngine\Providers;
 
-use AIEngine\Response;
-use AIEngine\Knowledge\KnowledgeBase;
-use AIEngine\Exceptions\ConfigurationException;
 use AIEngine\Exceptions\ApiException;
+use AIEngine\Exceptions\ConfigurationException;
+use AIEngine\Knowledge\KnowledgeBase;
+use AIEngine\Response;
 
 /**
  * Meta Llama API Provider
@@ -35,7 +35,7 @@ class MetaLlama implements ProviderInterface
 
     public function isConfigured(): bool
     {
-        return !empty($this->api_key) && is_string($this->api_key);
+        return !empty($this->api_key);
     }
 
     public function getName(): string
@@ -110,7 +110,7 @@ class MetaLlama implements ProviderInterface
             $knowledgeContext = $this->knowledgeBase->buildContext($this->maxKnowledgeChars);
             if (!empty($knowledgeContext)) {
                 $parts[] = "\n" . $knowledgeContext;
-                $parts[] = "Answer questions based on the knowledge base above. If the answer is not in the knowledge base, say so.";
+                $parts[] = 'Answer questions based on the knowledge base above. If the answer is not in the knowledge base, say so.';
             }
         }
 
@@ -155,7 +155,7 @@ class MetaLlama implements ProviderInterface
 
         $this->conversationHistory[] = [
             'role' => 'user',
-            'content' => $message
+            'content' => $message,
         ];
 
         $messages = [];
@@ -174,7 +174,7 @@ class MetaLlama implements ProviderInterface
 
         $this->conversationHistory[] = [
             'role' => 'assistant',
-            'content' => $response->getText()
+            'content' => $response->getText(),
         ];
 
         return $response;
@@ -184,18 +184,18 @@ class MetaLlama implements ProviderInterface
     {
         $data = [
             'model' => $this->model,
-            'messages' => $messages
+            'messages' => $messages,
         ];
 
         $options = [
             'http' => [
-                'header'  => "Content-Type: application/json\r\n" .
-                           "Authorization: Bearer {$this->api_key}\r\n",
+                'header'  => "Content-Type: application/json\r\n"
+                           . "Authorization: Bearer {$this->api_key}\r\n",
                 'method'  => 'POST',
                 'content' => json_encode($data),
                 'timeout' => $this->timeout,
-                'ignore_errors' => true
-            ]
+                'ignore_errors' => true,
+            ],
         ];
 
         $context = stream_context_create($options);
@@ -255,7 +255,7 @@ class MetaLlama implements ProviderInterface
     {
         $this->conversationHistory[] = [
             'role' => $role,
-            'content' => $text
+            'content' => $text,
         ];
     }
 

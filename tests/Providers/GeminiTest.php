@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace AIEngine\Tests\Providers;
 
-use PHPUnit\Framework\TestCase;
+use AIEngine\Exceptions\ConfigurationException;
+use AIEngine\Knowledge\KnowledgeBase;
 use AIEngine\Providers\Gemini;
 use AIEngine\Providers\ProviderInterface;
-use AIEngine\Response;
-use AIEngine\Knowledge\KnowledgeBase;
-use AIEngine\Exceptions\ConfigurationException;
-use AIEngine\Exceptions\ApiException;
+use PHPUnit\Framework\TestCase;
 
 class GeminiTest extends TestCase
 {
@@ -175,11 +173,11 @@ class GeminiTest extends TestCase
                 [
                     'content' => [
                         'parts' => [
-                            ['text' => 'Hello from Gemini!']
-                        ]
-                    ]
-                ]
-            ]
+                            ['text' => 'Hello from Gemini!'],
+                        ],
+                    ],
+                ],
+            ],
         ]);
 
         $this->assertEquals('Hello from Gemini!', $provider->getTextFromParts($json));

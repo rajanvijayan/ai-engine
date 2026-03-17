@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace AIEngine\Tests\Providers;
 
-use PHPUnit\Framework\TestCase;
+use AIEngine\Exceptions\ConfigurationException;
+use AIEngine\Knowledge\KnowledgeBase;
 use AIEngine\Providers\MetaLlama;
 use AIEngine\Providers\ProviderInterface;
-use AIEngine\Response;
-use AIEngine\Knowledge\KnowledgeBase;
-use AIEngine\Exceptions\ConfigurationException;
-use AIEngine\Exceptions\ApiException;
+use PHPUnit\Framework\TestCase;
 
 class MetaLlamaTest extends TestCase
 {

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace AIEngine\Tests\Utils;
 
-use PHPUnit\Framework\TestCase;
 use AIEngine\Utils\ConfigValidator;
+use PHPUnit\Framework\TestCase;
 
 class ConfigValidatorTest extends TestCase
 {
@@ -57,8 +57,8 @@ class ConfigValidatorTest extends TestCase
             'timeout' => 60,
             'enable_logging' => true,
             'nested' => [
-                'value' => '  nested  '
-            ]
+                'value' => '  nested  ',
+            ],
         ];
 
         $sanitized = ConfigValidator::sanitizeConfig($config);
@@ -74,7 +74,7 @@ class ConfigValidatorTest extends TestCase
         $config = [
             'api_key' => 'valid-api-key-1234567890',
             'timeout' => 60,
-            'model' => 'gemini-2.0-flash'
+            'model' => 'gemini-2.0-flash',
         ];
 
         $errors = ConfigValidator::validateProviderConfig($config);
@@ -94,7 +94,7 @@ class ConfigValidatorTest extends TestCase
     {
         $config = [
             'api_key' => 'valid-api-key-1234567890',
-            'timeout' => 999
+            'timeout' => 999,
         ];
 
         $errors = ConfigValidator::validateProviderConfig($config);

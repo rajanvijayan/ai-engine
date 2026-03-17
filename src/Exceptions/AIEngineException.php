@@ -6,6 +6,4 @@ namespace AIEngine\Exceptions;
 
 use RuntimeException;
 
-class AIEngineException extends RuntimeException
-{
-}
+class AIEngineException extends RuntimeException {}
