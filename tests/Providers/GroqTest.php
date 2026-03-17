@@ -12,7 +12,7 @@ use PHPUnit\Framework\TestCase;
 
 class GroqTest extends TestCase
 {
-    private string $dummyApiKey = 'gsk_test12345678901234567890123456789012345678';
+    private string $dummyApiKey = 'test-groq-api-key-1234567890';
 
     public function testImplementsProviderInterface(): void
     {
