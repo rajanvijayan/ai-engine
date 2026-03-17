@@ -6,17 +6,18 @@
          executionOrder="depends,defects"
          beStrictAboutOutputDuringTests="true"
          failOnRisky="true"
-         failOnWarning="true">
-    
+         failOnWarning="true"
+         cacheDirectory=".phpunit.cache">
+
     <testsuites>
         <testsuite name="Unit">
             <directory>tests</directory>
         </testsuite>
     </testsuites>
 
-    <coverage>
+    <source>
         <include>
             <directory suffix=".php">src</directory>
         </include>
-    </coverage>
+    </source>
 </phpunit>

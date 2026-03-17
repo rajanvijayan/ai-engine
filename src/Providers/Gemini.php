@@ -1,79 +1,76 @@
 <?php
+
+declare(strict_types=1);
+
 namespace AIEngine\Providers;
 
-class Gemini implements ProviderInterface {
+use AIEngine\Exceptions\ApiException;
+use AIEngine\Exceptions\ConfigurationException;
+use AIEngine\Knowledge\KnowledgeBase;
+use AIEngine\Response;
 
-    protected $api_key;
-    protected $model;
-    protected $timeout;
-    protected $conversationHistory = [];
-    protected $systemInstruction = null;
+class Gemini implements ProviderInterface
+{
+    protected string $api_key;
+    protected string $model;
+    protected int $timeout;
+    protected array $conversationHistory = [];
+    protected ?string $systemInstruction = null;
+    protected ?KnowledgeBase $knowledgeBase = null;
+    protected int $maxKnowledgeChars = 8000;
 
-    /**
-     * Constructor.
-     *
-     * @param string $api_key The API key for authentication.
-     * @param string $model The Gemini model to use (default: gemini-2.0-flash).
-     * @param int $timeout Request timeout in seconds (default: 60).
-     */
-    public function __construct($api_key, $model = 'gemini-2.0-flash', $timeout = 60) {
+    public function __construct(string $api_key, string $model = 'gemini-2.0-flash', int $timeout = 60)
+    {
         $this->api_key = $api_key;
         $this->model = $model;
         $this->timeout = $timeout;
     }
 
-    /**
-     * Validate the configuration (API key, etc.).
-     *
-     * @return bool True if configuration is valid
-     */
-    public function isConfigured() {
-        return !empty($this->api_key) && is_string($this->api_key);
+    public function isConfigured(): bool
+    {
+        return !empty($this->api_key);
     }
 
-    /**
-     * Get the provider name.
-     *
-     * @return string The provider name
-     */
-    public function getName() {
+    public function getName(): string
+    {
         return 'Gemini';
     }
 
-    /**
-     * Get the current model being used.
-     *
-     * @return string The current model name
-     */
-    public function getModel() {
+    public function getModel(): string
+    {
         return $this->model;
     }
 
-    /**
-     * Set the model to use.
-     *
-     * @param string $model The model name
-     */
-    public function setModel($model) {
+    public function setModel(string $model): void
+    {
         $this->model = $model;
     }
 
-    /**
-     * Set the request timeout.
-     *
-     * @param int $timeout Timeout in seconds
-     */
-    public function setTimeout($timeout) {
+    public function setTimeout(int $timeout): void
+    {
         $this->timeout = $timeout;
+    }
+
+    public function setKnowledgeBase(?KnowledgeBase $knowledgeBase): void
+    {
+        $this->knowledgeBase = $knowledgeBase;
+    }
+
+    public function hasKnowledgeBase(): bool
+    {
+        return $this->knowledgeBase !== null && !$this->knowledgeBase->isEmpty();
+    }
+
+    public function setMaxKnowledgeChars(int $maxChars): void
+    {
+        $this->maxKnowledgeChars = $maxChars;
     }
 
     /**
      * Extract text from the Gemini API response.
-     *
-     * @param string $json The JSON response from the API.
-     * @return string|null The extracted text or null if not found.
      */
-    public function getTextFromParts($json) {
+    public function getTextFromParts(string $json): ?string
+    {
         $data = json_decode($json, true);
 
         if (isset($data['candidates']) && is_array($data['candidates'])) {
@@ -91,206 +88,238 @@ class Gemini implements ProviderInterface {
         return null;
     }
 
-    /**
-     * Validate the prompt input.
-     *
-     * @param string $prompt The prompt to validate
-     * @return bool True if prompt is valid
-     */
-    protected function validatePrompt($prompt) {
-        return is_string($prompt) && !empty(trim($prompt)) && strlen($prompt) <= 30000;
+    protected function validatePrompt(string $prompt): bool
+    {
+        return !empty(trim($prompt)) && strlen($prompt) <= 30000;
     }
 
     /**
-     * Fetch data from the Gemini API using the new API format.
-     *
-     * @param string $prompt The prompt to send to the API.
-     * @return array|string The response data or an error message.
+     * Build the system instruction including knowledge base context.
      */
-    public function generateContent($prompt) {
-        // Validate configuration
-        if (!$this->isConfigured()) {
-            return ['error' => 'Provider not properly configured'];
-        }
+    protected function buildSystemInstruction(): ?string
+    {
+        $parts = [];
 
-        // Validate prompt
-        if (!$this->validatePrompt($prompt)) {
-            return ['error' => 'Invalid prompt: must be a non-empty string under 30000 characters'];
-        }
-
-        // Sanitize the prompt by removing harmful characters
-        $prompt = htmlspecialchars($prompt, ENT_QUOTES, 'UTF-8');
-    
-        // Updated API URL without query parameter
-        $api_url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent";
-    
-        // Prepare the data for the API request with updated structure
-        $data = array(
-            'contents' => array(
-                array(
-                    'parts' => array(
-                        array(
-                            'text' => $prompt
-                        )
-                    )
-                )
-            )
-        );
-    
-        // Updated options with X-goog-api-key header
-        $options = array(
-            'http' => array(
-                'header'  => "Content-Type: application/json\r\n" . 
-                           "X-goog-api-key: {$this->api_key}\r\n",
-                'method'  => 'POST',
-                'content' => json_encode($data),
-                'timeout' => $this->timeout
-            )
-        );
-    
-        $context  = stream_context_create($options);
-        $response = @file_get_contents($api_url, false, $context);
-    
-        if ($response === FALSE) {
-            return ['error' => 'Error contacting API'];
-        }
-    
-        return $this->getTextFromParts($response);
-    }
-
-    /**
-     * Send a message in a conversation context (maintains history).
-     *
-     * @param string $message The user message to send
-     * @return string|array The AI response or error response
-     */
-    public function sendMessage($message) {
-        // Validate configuration
-        if (!$this->isConfigured()) {
-            return ['error' => 'Provider not properly configured'];
-        }
-
-        // Validate message
-        if (!$this->validatePrompt($message)) {
-            return ['error' => 'Invalid message: must be a non-empty string under 30000 characters'];
-        }
-
-        // Sanitize the message
-        $message = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
-
-        // Add user message to history
-        $this->conversationHistory[] = [
-            'role' => 'user',
-            'parts' => [['text' => $message]]
-        ];
-
-        // Make API request with full conversation history
-        $response = $this->makeConversationRequest();
-
-        if (is_array($response) && isset($response['error'])) {
-            // Remove the failed user message from history
-            array_pop($this->conversationHistory);
-            return $response;
-        }
-
-        // Add assistant response to history
-        $this->conversationHistory[] = [
-            'role' => 'model',
-            'parts' => [['text' => $response]]
-        ];
-
-        return $response;
-    }
-
-    /**
-     * Make API request with conversation history.
-     *
-     * @return string|array The response text or error array
-     */
-    protected function makeConversationRequest() {
-        $api_url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent";
-
-        // Prepare the data with conversation history
-        $data = [
-            'contents' => $this->conversationHistory
-        ];
-
-        // Add system instruction if set
         if ($this->systemInstruction !== null) {
+            $parts[] = $this->systemInstruction;
+        }
+
+        if ($this->knowledgeBase !== null && !$this->knowledgeBase->isEmpty()) {
+            $knowledgeContext = $this->knowledgeBase->buildContext($this->maxKnowledgeChars);
+            if (!empty($knowledgeContext)) {
+                $parts[] = "\n" . $knowledgeContext;
+                $parts[] = 'Answer questions based on the knowledge base above. If the answer is not in the knowledge base, say so.';
+            }
+        }
+
+        if (empty($parts)) {
+            return null;
+        }
+
+        return implode("\n\n", $parts);
+    }
+
+    public function generateContent(string $prompt): Response
+    {
+        if (!$this->isConfigured()) {
+            throw new ConfigurationException('Provider not properly configured');
+        }
+
+        if (!$this->validatePrompt($prompt)) {
+            throw new ConfigurationException('Invalid prompt: must be a non-empty string under 30000 characters');
+        }
+
+        $prompt = htmlspecialchars($prompt, ENT_QUOTES, 'UTF-8');
+
+        $api_url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent";
+
+        $data = [
+            'contents' => [
+                [
+                    'parts' => [
+                        ['text' => $prompt],
+                    ],
+                ],
+            ],
+        ];
+
+        $systemInstruction = $this->buildSystemInstruction();
+        if ($systemInstruction !== null) {
             $data['systemInstruction'] = [
-                'parts' => [['text' => $this->systemInstruction]]
+                'parts' => [['text' => $systemInstruction]],
             ];
         }
 
         $options = [
             'http' => [
-                'header'  => "Content-Type: application/json\r\n" . 
-                           "X-goog-api-key: {$this->api_key}\r\n",
+                'header'  => "Content-Type: application/json\r\n"
+                           . "X-goog-api-key: {$this->api_key}\r\n",
                 'method'  => 'POST',
                 'content' => json_encode($data),
-                'timeout' => $this->timeout
-            ]
+                'timeout' => $this->timeout,
+                'ignore_errors' => true,
+            ],
         ];
 
-        $context  = stream_context_create($options);
-        $response = @file_get_contents($api_url, false, $context);
+        $context = stream_context_create($options);
 
-        if ($response === FALSE) {
-            return ['error' => 'Error contacting API'];
+        $errorMessage = null;
+        set_error_handler(function (int $errno, string $errstr) use (&$errorMessage): bool {
+            $errorMessage = $errstr;
+            return true;
+        });
+        $response = file_get_contents($api_url, false, $context);
+        restore_error_handler();
+
+        if ($response === false) {
+            throw new ApiException(
+                'Error contacting API' . ($errorMessage ? ": {$errorMessage}" : ''),
+                'Gemini'
+            );
         }
 
-        return $this->getTextFromParts($response);
+        $text = $this->getTextFromParts($response);
+
+        if ($text === null) {
+            $errorData = json_decode($response, true);
+            $apiError = $errorData['error']['message'] ?? null;
+            throw new ApiException(
+                $apiError ?? 'Failed to parse API response',
+                'Gemini',
+                $apiError
+            );
+        }
+
+        $rawResponse = json_decode($response, true);
+        return new Response($text, 'Gemini', $this->model, is_array($rawResponse) ? $rawResponse : null);
     }
 
-    /**
-     * Start a new conversation (clears history).
-     *
-     * @return void
-     */
-    public function startNewConversation() {
+    public function sendMessage(string $message): Response
+    {
+        if (!$this->isConfigured()) {
+            throw new ConfigurationException('Provider not properly configured');
+        }
+
+        if (!$this->validatePrompt($message)) {
+            throw new ConfigurationException('Invalid message: must be a non-empty string under 30000 characters');
+        }
+
+        $message = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
+
+        $this->conversationHistory[] = [
+            'role' => 'user',
+            'parts' => [['text' => $message]],
+        ];
+
+        try {
+            $response = $this->makeConversationRequest();
+        } catch (ApiException $e) {
+            array_pop($this->conversationHistory);
+            throw $e;
+        }
+
+        $this->conversationHistory[] = [
+            'role' => 'model',
+            'parts' => [['text' => $response->getText()]],
+        ];
+
+        return $response;
+    }
+
+    protected function makeConversationRequest(): Response
+    {
+        $api_url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent";
+
+        $data = [
+            'contents' => $this->conversationHistory,
+        ];
+
+        $systemInstruction = $this->buildSystemInstruction();
+        if ($systemInstruction !== null) {
+            $data['systemInstruction'] = [
+                'parts' => [['text' => $systemInstruction]],
+            ];
+        }
+
+        $options = [
+            'http' => [
+                'header'  => "Content-Type: application/json\r\n"
+                           . "X-goog-api-key: {$this->api_key}\r\n",
+                'method'  => 'POST',
+                'content' => json_encode($data),
+                'timeout' => $this->timeout,
+                'ignore_errors' => true,
+            ],
+        ];
+
+        $context = stream_context_create($options);
+
+        $errorMessage = null;
+        set_error_handler(function (int $errno, string $errstr) use (&$errorMessage): bool {
+            $errorMessage = $errstr;
+            return true;
+        });
+        $response = file_get_contents($api_url, false, $context);
+        restore_error_handler();
+
+        if ($response === false) {
+            throw new ApiException(
+                'Error contacting API' . ($errorMessage ? ": {$errorMessage}" : ''),
+                'Gemini'
+            );
+        }
+
+        $text = $this->getTextFromParts($response);
+
+        if ($text === null) {
+            $errorData = json_decode($response, true);
+            $apiError = $errorData['error']['message'] ?? null;
+            throw new ApiException(
+                $apiError ?? 'Failed to parse API response',
+                'Gemini',
+                $apiError
+            );
+        }
+
+        $rawResponse = json_decode($response, true);
+        return new Response($text, 'Gemini', $this->model, is_array($rawResponse) ? $rawResponse : null);
+    }
+
+    public function startNewConversation(): void
+    {
         $this->conversationHistory = [];
     }
 
-    /**
-     * Get the current conversation history.
-     *
-     * @return array The conversation history
-     */
-    public function getConversationHistory() {
+    public function getConversationHistory(): array
+    {
         return $this->conversationHistory;
     }
 
-    /**
-     * Set a system instruction for the conversation.
-     *
-     * @param string $instruction The system instruction
-     * @return void
-     */
-    public function setSystemInstruction($instruction) {
+    public function setSystemInstruction(string $instruction): void
+    {
         $this->systemInstruction = $instruction;
     }
 
-    /**
-     * Get the current system instruction.
-     *
-     * @return string|null The system instruction or null if not set
-     */
-    public function getSystemInstruction() {
+    public function getSystemInstruction(): ?string
+    {
         return $this->systemInstruction;
     }
 
-    /**
-     * Add a message to history without sending (useful for restoring conversations).
-     *
-     * @param string $role The role ('user' or 'model')
-     * @param string $text The message text
-     * @return void
-     */
-    public function addToHistory($role, $text) {
+    public function addToHistory(string $role, string $text): void
+    {
         $this->conversationHistory[] = [
             'role' => $role,
-            'parts' => [['text' => $text]]
+            'parts' => [['text' => $text]],
         ];
     }
 
+    public static function getAvailableModels(): array
+    {
+        return [
+            'gemini-2.0-flash',
+            'gemini-2.0-flash-lite',
+            'gemini-2.5-flash',
+            'gemini-2.5-pro',
+        ];
+    }
 }

@@ -36,3 +36,6 @@ composer.lock
 
 # API Keys
 *.ai-key
+
+# PHP-CS-Fixer
+.php-cs-fixer.cache
