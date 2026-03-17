@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AIEngine\Knowledge;
 
 /**
  * Knowledge Base
- * 
+ *
  * Stores and manages documents for RAG (Retrieval Augmented Generation)
  */
 class KnowledgeBase
@@ -16,11 +18,6 @@ class KnowledgeBase
 
     protected UrlFetcher $fetcher;
 
-    /**
-     * Constructor
-     *
-     * @param UrlFetcher|null $fetcher Optional custom URL fetcher
-     */
     public function __construct(?UrlFetcher $fetcher = null)
     {
         $this->fetcher = $fetcher ?? new UrlFetcher();
@@ -29,7 +26,6 @@ class KnowledgeBase
     /**
      * Add knowledge from a URL
      *
-     * @param string $url The URL to fetch and add
      * @return array{success: bool, error?: string, title?: string}
      */
     public function addUrl(string $url): array
@@ -59,7 +55,6 @@ class KnowledgeBase
     /**
      * Add knowledge from multiple URLs
      *
-     * @param array $urls Array of URLs to fetch
      * @return array{success: int, failed: int, results: array}
      */
     public function addUrls(array $urls): array
@@ -71,7 +66,7 @@ class KnowledgeBase
         foreach ($urls as $url) {
             $result = $this->addUrl($url);
             $results[] = array_merge(['url' => $url], $result);
-            
+
             if ($result['success']) {
                 $success++;
             } else {
@@ -88,11 +83,6 @@ class KnowledgeBase
 
     /**
      * Add raw text as knowledge
-     *
-     * @param string $text The text content
-     * @param string $source Source identifier (e.g., filename, description)
-     * @param string|null $title Optional title
-     * @return bool True if added successfully
      */
     public function addText(string $text, string $source, ?string $title = null): bool
     {
@@ -110,52 +100,26 @@ class KnowledgeBase
         return true;
     }
 
-    /**
-     * Get all documents
-     *
-     * @return array All stored documents
-     */
     public function getDocuments(): array
     {
         return $this->documents;
     }
 
-    /**
-     * Get document count
-     *
-     * @return int Number of documents
-     */
     public function count(): int
     {
         return count($this->documents);
     }
 
-    /**
-     * Check if knowledge base is empty
-     *
-     * @return bool True if empty
-     */
     public function isEmpty(): bool
     {
         return empty($this->documents);
     }
 
-    /**
-     * Clear all documents
-     *
-     * @return void
-     */
     public function clear(): void
     {
         $this->documents = [];
     }
 
-    /**
-     * Remove a document by index
-     *
-     * @param int $index Document index
-     * @return bool True if removed
-     */
     public function remove(int $index): bool
     {
         if (!isset($this->documents[$index])) {
@@ -163,15 +127,12 @@ class KnowledgeBase
         }
 
         unset($this->documents[$index]);
-        $this->documents = array_values($this->documents); // Re-index
+        $this->documents = array_values($this->documents);
         return true;
     }
 
     /**
      * Build context string for AI prompt
-     *
-     * @param int|null $maxChars Maximum characters (null for unlimited)
-     * @return string The context string
      */
     public function buildContext(?int $maxChars = null): string
     {
@@ -189,7 +150,7 @@ class KnowledgeBase
         foreach ($this->documents as $index => $doc) {
             $docParts = [];
             $docParts[] = "--- Document " . ($index + 1) . " ---";
-            
+
             if ($doc['title']) {
                 $docParts[] = "Title: " . $doc['title'];
             }
@@ -201,10 +162,8 @@ class KnowledgeBase
             $docText = implode("\n", $docParts);
             $docChars = strlen($docText);
 
-            // Check if we'd exceed max chars
             if ($maxChars !== null && ($headerChars + $totalChars + $docChars) > $maxChars) {
-                // Try to fit partial content
-                $remaining = $maxChars - $headerChars - $totalChars - 100; // Buffer
+                $remaining = $maxChars - $headerChars - $totalChars - 100;
                 if ($remaining > 200) {
                     $docParts[count($docParts) - 2] = substr($doc['content'], 0, $remaining) . '...';
                     $parts[] = implode("\n", $docParts);
@@ -222,8 +181,6 @@ class KnowledgeBase
     }
 
     /**
-     * Get a summary of the knowledge base
-     *
      * @return array{count: int, sources: array, totalChars: int}
      */
     public function getSummary(): array
@@ -247,12 +204,6 @@ class KnowledgeBase
         ];
     }
 
-    /**
-     * Save knowledge base to file
-     *
-     * @param string $path File path
-     * @return bool True if saved successfully
-     */
     public function save(string $path): bool
     {
         $data = json_encode([
@@ -261,15 +212,13 @@ class KnowledgeBase
             'documents' => $this->documents
         ], JSON_PRETTY_PRINT);
 
+        if ($data === false) {
+            return false;
+        }
+
         return file_put_contents($path, $data) !== false;
     }
 
-    /**
-     * Load knowledge base from file
-     *
-     * @param string $path File path
-     * @return bool True if loaded successfully
-     */
     public function load(string $path): bool
     {
         if (!file_exists($path)) {
@@ -282,7 +231,7 @@ class KnowledgeBase
         }
 
         $data = json_decode($content, true);
-        if (!$data || !isset($data['documents'])) {
+        if (!is_array($data) || !isset($data['documents'])) {
             return false;
         }
 
@@ -292,9 +241,6 @@ class KnowledgeBase
 
     /**
      * Search documents for keyword (simple search)
-     *
-     * @param string $keyword Keyword to search
-     * @return array Matching documents
      */
     public function search(string $keyword): array
     {
@@ -313,14 +259,8 @@ class KnowledgeBase
         return $results;
     }
 
-    /**
-     * Get the URL fetcher instance
-     *
-     * @return UrlFetcher
-     */
     public function getFetcher(): UrlFetcher
     {
         return $this->fetcher;
     }
 }
-

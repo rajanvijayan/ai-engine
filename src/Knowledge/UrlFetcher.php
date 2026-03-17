@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AIEngine\Knowledge;
 
 /**
  * URL Content Fetcher
- * 
+ *
  * Fetches and extracts text content from URLs
  */
 class UrlFetcher
@@ -12,12 +14,6 @@ class UrlFetcher
     protected int $timeout;
     protected string $userAgent;
 
-    /**
-     * Constructor
-     *
-     * @param int $timeout Request timeout in seconds
-     * @param string|null $userAgent Custom user agent string
-     */
     public function __construct(int $timeout = 30, ?string $userAgent = null)
     {
         $this->timeout = $timeout;
@@ -27,7 +23,6 @@ class UrlFetcher
     /**
      * Fetch content from a URL
      *
-     * @param string $url The URL to fetch
      * @return array{success: bool, content?: string, title?: string, error?: string, url: string}
      */
     public function fetch(string $url): array
@@ -41,7 +36,7 @@ class UrlFetcher
         }
 
         $html = $this->fetchHtml($url);
-        
+
         if ($html === null) {
             return [
                 'success' => false,
@@ -71,9 +66,6 @@ class UrlFetcher
 
     /**
      * Fetch multiple URLs
-     *
-     * @param array $urls Array of URLs to fetch
-     * @return array Array of fetch results
      */
     public function fetchMultiple(array $urls): array
     {
@@ -84,24 +76,12 @@ class UrlFetcher
         return $results;
     }
 
-    /**
-     * Validate URL format
-     *
-     * @param string $url The URL to validate
-     * @return bool True if valid
-     */
     protected function isValidUrl(string $url): bool
     {
-        return filter_var($url, FILTER_VALIDATE_URL) !== false 
-            && preg_match('/^https?:\/\//i', $url);
+        return filter_var($url, FILTER_VALIDATE_URL) !== false
+            && preg_match('/^https?:\/\//i', $url) === 1;
     }
 
-    /**
-     * Fetch raw HTML from URL
-     *
-     * @param string $url The URL to fetch
-     * @return string|null HTML content or null on failure
-     */
     protected function fetchHtml(string $url): ?string
     {
         $options = [
@@ -122,7 +102,12 @@ class UrlFetcher
         ];
 
         $context = stream_context_create($options);
-        $html = @file_get_contents($url, false, $context);
+
+        set_error_handler(function (int $errno, string $errstr): bool {
+            return true;
+        });
+        $html = file_get_contents($url, false, $context);
+        restore_error_handler();
 
         if ($html === false) {
             return null;
@@ -131,12 +116,6 @@ class UrlFetcher
         return $html;
     }
 
-    /**
-     * Extract page title from HTML
-     *
-     * @param string $html The HTML content
-     * @return string|null The page title or null
-     */
     protected function extractTitle(string $html): ?string
     {
         if (preg_match('/<title[^>]*>(.*?)<\/title>/is', $html, $matches)) {
@@ -145,57 +124,32 @@ class UrlFetcher
         return null;
     }
 
-    /**
-     * Extract text content from HTML
-     *
-     * @param string $html The HTML content
-     * @return string The extracted text
-     */
     public function extractText(string $html): string
     {
-        // Remove script and style elements
-        $html = preg_replace('/<script\b[^>]*>(.*?)<\/script>/is', '', $html);
-        $html = preg_replace('/<style\b[^>]*>(.*?)<\/style>/is', '', $html);
-        
-        // Remove comments
-        $html = preg_replace('/<!--.*?-->/s', '', $html);
-        
-        // Remove header, footer, nav, aside (often contain non-content)
-        $html = preg_replace('/<(header|footer|nav|aside)\b[^>]*>(.*?)<\/\1>/is', '', $html);
-        
-        // Try to extract main content areas first
+        $html = preg_replace('/<script\b[^>]*>(.*?)<\/script>/is', '', $html) ?? $html;
+        $html = preg_replace('/<style\b[^>]*>(.*?)<\/style>/is', '', $html) ?? $html;
+        $html = preg_replace('/<!--.*?-->/s', '', $html) ?? $html;
+        $html = preg_replace('/<(header|footer|nav|aside)\b[^>]*>(.*?)<\/\1>/is', '', $html) ?? $html;
+
         $mainContent = $this->extractMainContent($html);
         if (!empty($mainContent)) {
             $html = $mainContent;
         }
-        
-        // Convert common block elements to newlines
-        $html = preg_replace('/<\/(p|div|h[1-6]|li|tr|br)[^>]*>/i', "\n", $html);
-        $html = preg_replace('/<br\s*\/?>/i', "\n", $html);
-        
-        // Remove remaining HTML tags
+
+        $html = preg_replace('/<\/(p|div|h[1-6]|li|tr|br)[^>]*>/i', "\n", $html) ?? $html;
+        $html = preg_replace('/<br\s*\/?>/i', "\n", $html) ?? $html;
+
         $text = strip_tags($html);
-        
-        // Decode HTML entities
         $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        
-        // Clean up whitespace
-        $text = preg_replace('/[ \t]+/', ' ', $text);  // Multiple spaces/tabs to single space
-        $text = preg_replace('/\n{3,}/', "\n\n", $text);  // Multiple newlines to double
+        $text = preg_replace('/[ \t]+/', ' ', $text) ?? $text;
+        $text = preg_replace('/\n{3,}/', "\n\n", $text) ?? $text;
         $text = trim($text);
-        
+
         return $text;
     }
 
-    /**
-     * Try to extract main content from HTML
-     *
-     * @param string $html The HTML content
-     * @return string|null The main content or null
-     */
     protected function extractMainContent(string $html): ?string
     {
-        // Try common main content selectors
         $patterns = [
             '/<main\b[^>]*>(.*?)<\/main>/is',
             '/<article\b[^>]*>(.*?)<\/article>/is',
@@ -216,25 +170,19 @@ class UrlFetcher
     }
 
     /**
-     * Extract metadata from HTML
-     *
-     * @param string $html The HTML content
      * @return array{title?: string, description?: string, keywords?: string}
      */
     public function extractMetadata(string $html): array
     {
         $metadata = [];
 
-        // Title
         $metadata['title'] = $this->extractTitle($html);
 
-        // Meta description
         if (preg_match('/<meta[^>]*\bname=["\']description["\'][^>]*\bcontent=["\']([^"\']*)["\'][^>]*>/i', $html, $matches) ||
             preg_match('/<meta[^>]*\bcontent=["\']([^"\']*)["\'][^>]*\bname=["\']description["\'][^>]*>/i', $html, $matches)) {
             $metadata['description'] = html_entity_decode(trim($matches[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         }
 
-        // Meta keywords
         if (preg_match('/<meta[^>]*\bname=["\']keywords["\'][^>]*\bcontent=["\']([^"\']*)["\'][^>]*>/i', $html, $matches) ||
             preg_match('/<meta[^>]*\bcontent=["\']([^"\']*)["\'][^>]*\bname=["\']keywords["\'][^>]*>/i', $html, $matches)) {
             $metadata['keywords'] = html_entity_decode(trim($matches[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -243,24 +191,13 @@ class UrlFetcher
         return array_filter($metadata);
     }
 
-    /**
-     * Set request timeout
-     *
-     * @param int $timeout Timeout in seconds
-     */
     public function setTimeout(int $timeout): void
     {
         $this->timeout = $timeout;
     }
 
-    /**
-     * Set user agent string
-     *
-     * @param string $userAgent The user agent string
-     */
     public function setUserAgent(string $userAgent): void
     {
         $this->userAgent = $userAgent;
     }
 }
-

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AIEngine;
 
 use AIEngine\Providers\Gemini;
@@ -7,18 +9,22 @@ use AIEngine\Providers\MetaLlama;
 use AIEngine\Providers\Groq;
 use AIEngine\Providers\ProviderInterface;
 use AIEngine\Knowledge\KnowledgeBase;
+use AIEngine\Exceptions\AIEngineException;
+use AIEngine\Exceptions\ConfigurationException;
+use AIEngine\Exceptions\ApiException;
 
 class AIEngine
 {
-    protected $provider;
-    protected $config;
-    protected $logger;
+    protected ProviderInterface $provider;
+    protected array $config;
+    /** @var callable|null */
+    protected $logger = null;
     protected ?KnowledgeBase $knowledgeBase = null;
 
     /**
      * Default models for each provider.
      */
-    protected static $defaultModels = [
+    protected static array $defaultModels = [
         'gemini' => 'gemini-2.0-flash',
         'meta' => 'Llama-4-Maverick-17B-128E-Instruct-FP8',
         'groq' => 'llama-3.3-70b-versatile',
@@ -34,7 +40,7 @@ class AIEngine
      *                      - 'timeout': Request timeout in seconds (default: 60)
      *                      - 'enable_logging': Enable logging (default: false)
      */
-    public function __construct( $apiKey, $config = [] )
+    public function __construct(string $apiKey, array $config = [])
     {
         $this->config = array_merge([
             'provider' => 'gemini',
@@ -43,36 +49,28 @@ class AIEngine
             'enable_logging' => false
         ], $config);
 
-        // Use default model if not specified
-        $provider = strtolower($this->config['provider']);
+        $provider = strtolower((string) $this->config['provider']);
         if ($this->config['model'] === null) {
             $this->config['model'] = self::$defaultModels[$provider] ?? 'gemini-2.0-flash';
         }
 
-        // Create the appropriate provider
-        $this->provider = $this->createProvider($provider, $apiKey, $this->config['model'], $this->config['timeout']);
+        $this->provider = $this->createProvider($provider, $apiKey, (string) $this->config['model'], (int) $this->config['timeout']);
     }
 
     /**
      * Create a provider instance.
-     *
-     * @param string $providerName The provider name ('gemini', 'meta', 'groq')
-     * @param string $apiKey The API key
-     * @param string $model The model to use
-     * @param int $timeout Request timeout
-     * @return ProviderInterface The provider instance
      */
-    protected function createProvider($providerName, $apiKey, $model, $timeout)
+    protected function createProvider(string $providerName, string $apiKey, string $model, int $timeout): ProviderInterface
     {
         switch (strtolower($providerName)) {
             case 'meta':
             case 'llama':
             case 'meta-llama':
                 return new MetaLlama($apiKey, $model, $timeout);
-            
+
             case 'groq':
                 return new Groq($apiKey, $model, $timeout);
-            
+
             case 'gemini':
             default:
                 return new Gemini($apiKey, $model, $timeout);
@@ -81,13 +79,8 @@ class AIEngine
 
     /**
      * Static factory method to create AIEngine with a specific provider.
-     *
-     * @param string $provider The provider name ('gemini', 'meta', 'groq')
-     * @param string $apiKey The API key
-     * @param array $config Additional configuration
-     * @return AIEngine
      */
-    public static function create($provider, $apiKey, $config = [])
+    public static function create(string $provider, string $apiKey, array $config = []): self
     {
         $config['provider'] = $provider;
         return new self($apiKey, $config);
@@ -95,68 +88,67 @@ class AIEngine
 
     /**
      * Switch to a different provider.
-     *
-     * @param string $providerName The provider name ('gemini', 'meta', 'groq')
-     * @param string $apiKey The API key for the new provider
-     * @param string|null $model The model to use (optional)
-     * @return void
      */
-    public function switchProvider($providerName, $apiKey, $model = null)
+    public function switchProvider(string $providerName, string $apiKey, ?string $model = null): void
     {
         if ($model === null) {
             $model = self::$defaultModels[strtolower($providerName)] ?? 'gemini-2.0-flash';
         }
-        
-        $this->provider = $this->createProvider($providerName, $apiKey, $model, $this->config['timeout']);
+
+        $this->provider = $this->createProvider($providerName, $apiKey, $model, (int) $this->config['timeout']);
         $this->config['provider'] = $providerName;
         $this->config['model'] = $model;
+
+        // Sync knowledge base to new provider
+        if ($this->knowledgeBase !== null) {
+            $this->syncKnowledgeToProvider();
+        }
+
         $this->log("Switched to provider: " . $this->provider->getName());
     }
 
     /**
      * Generate content using the current provider (single prompt, no history).
      *
-     * @param string $prompt The prompt to send to the AI service
-     * @return string|array The generated content or error response
+     * @throws ConfigurationException If not configured
+     * @throws ApiException If API call fails
      */
-    public function generateContent($prompt)
+    public function generateContent(string $prompt): Response
     {
         $this->log("Generating content with provider: " . $this->provider->getName());
-        
-        $result = $this->provider->generateContent($prompt);
-        
-        if (is_array($result) && isset($result['error'])) {
-            $this->log("Error: " . $result['error']);
+
+        try {
+            $result = $this->provider->generateContent($prompt);
+            return $result;
+        } catch (AIEngineException $e) {
+            $this->log("Error: " . $e->getMessage(), 'error');
+            throw $e;
         }
-        
-        return $result;
     }
 
     /**
      * Send a message in a conversation context (maintains history).
      *
-     * @param string $message The user message to send
-     * @return string|array The AI response or error response
+     * @throws ConfigurationException If not configured
+     * @throws ApiException If API call fails
      */
-    public function chat($message)
+    public function chat(string $message): Response
     {
         $this->log("Sending chat message with provider: " . $this->provider->getName());
-        
-        $result = $this->provider->sendMessage($message);
-        
-        if (is_array($result) && isset($result['error'])) {
-            $this->log("Error: " . $result['error']);
+
+        try {
+            $result = $this->provider->sendMessage($message);
+            return $result;
+        } catch (AIEngineException $e) {
+            $this->log("Error: " . $e->getMessage(), 'error');
+            throw $e;
         }
-        
-        return $result;
     }
 
     /**
      * Start a new conversation (clears history).
-     *
-     * @return void
      */
-    public function newConversation()
+    public function newConversation(): void
     {
         $this->provider->startNewConversation();
         $this->log("Started new conversation");
@@ -164,21 +156,16 @@ class AIEngine
 
     /**
      * Get the current conversation history.
-     *
-     * @return array The conversation history
      */
-    public function getHistory()
+    public function getHistory(): array
     {
         return $this->provider->getConversationHistory();
     }
 
     /**
      * Set a system instruction for the conversation.
-     *
-     * @param string $instruction The system instruction
-     * @return void
      */
-    public function setSystemInstruction($instruction)
+    public function setSystemInstruction(string $instruction): void
     {
         $this->provider->setSystemInstruction($instruction);
         $this->log("System instruction set");
@@ -190,71 +177,62 @@ class AIEngine
 
     /**
      * Add knowledge from a URL.
-     * Currently only supported by Groq provider.
+     * Now supported by all providers.
      *
-     * @param string $url The URL to fetch and add to knowledge base
      * @return array{success: bool, error?: string, title?: string}
      */
     public function addKnowledgeFromUrl(string $url): array
     {
         $this->ensureKnowledgeBase();
-        
+
         $result = $this->knowledgeBase->addUrl($url);
-        
+
         if ($result['success']) {
             $this->log("Added knowledge from URL: {$url}");
             $this->syncKnowledgeToProvider();
         } else {
             $this->log("Failed to add knowledge from URL: {$url} - " . ($result['error'] ?? 'Unknown error'), 'error');
         }
-        
+
         return $result;
     }
 
     /**
      * Add knowledge from multiple URLs.
      *
-     * @param array $urls Array of URLs to fetch
      * @return array{success: int, failed: int, results: array}
      */
     public function addKnowledgeFromUrls(array $urls): array
     {
         $this->ensureKnowledgeBase();
-        
+
         $result = $this->knowledgeBase->addUrls($urls);
-        
+
         $this->log("Added knowledge from {$result['success']} URLs ({$result['failed']} failed)");
         $this->syncKnowledgeToProvider();
-        
+
         return $result;
     }
 
     /**
      * Add raw text as knowledge.
-     *
-     * @param string $text The text content
-     * @param string $source Source identifier
-     * @param string|null $title Optional title
-     * @return bool True if added successfully
      */
     public function addKnowledgeText(string $text, string $source, ?string $title = null): bool
     {
         $this->ensureKnowledgeBase();
-        
+
         $result = $this->knowledgeBase->addText($text, $source, $title);
-        
+
         if ($result) {
             $this->log("Added text knowledge from: {$source}");
             $this->syncKnowledgeToProvider();
         }
-        
+
         return $result;
     }
 
     /**
      * Get the knowledge base instance.
-     *
-     * @return KnowledgeBase
      */
     public function getKnowledgeBase(): KnowledgeBase
     {
@@ -277,8 +255,6 @@ class AIEngine
 
     /**
      * Clear all knowledge.
-     *
-     * @return void
      */
     public function clearKnowledge(): void
     {
@@ -286,17 +262,12 @@ class AIEngine
             $this->knowledgeBase->clear();
             $this->log("Knowledge base cleared");
         }
-        
-        // Clear from provider if supported
-        if ($this->provider instanceof Groq) {
-            $this->provider->clearKnowledgeBase();
-        }
+
+        $this->provider->setKnowledgeBase(null);
     }
 
     /**
      * Check if knowledge base has content.
-     *
-     * @return bool True if knowledge base has documents
      */
     public function hasKnowledge(): bool
     {
@@ -305,9 +276,6 @@ class AIEngine
 
     /**
      * Save knowledge base to file.
-     *
-     * @param string $path File path
-     * @return bool True if saved successfully
      */
     public function saveKnowledge(string $path): bool
     {
@@ -319,28 +287,23 @@ class AIEngine
 
     /**
      * Load knowledge base from file.
-     *
-     * @param string $path File path
-     * @return bool True if loaded successfully
      */
     public function loadKnowledge(string $path): bool
     {
         $this->ensureKnowledgeBase();
-        
+
         $result = $this->knowledgeBase->load($path);
-        
+
         if ($result) {
             $this->log("Loaded knowledge from: {$path}");
             $this->syncKnowledgeToProvider();
         }
-        
+
         return $result;
     }
 
     /**
      * Ensure knowledge base is initialized.
-     *
-     * @return void
      */
     protected function ensureKnowledgeBase(): void
     {
@@ -350,14 +313,11 @@ class AIEngine
     }
 
     /**
-     * Sync knowledge base to provider.
-     *
-     * @return void
+     * Sync knowledge base to provider (now supports all providers).
      */
     protected function syncKnowledgeToProvider(): void
     {
-        // Currently only Groq supports knowledge base
-        if ($this->provider instanceof Groq && $this->knowledgeBase !== null) {
+        if ($this->knowledgeBase !== null) {
             $this->provider->setKnowledgeBase($this->knowledgeBase);
         }
     }
@@ -368,10 +328,8 @@ class AIEngine
 
     /**
      * Set a new provider.
-     *
-     * @param ProviderInterface $provider The provider to use
      */
-    public function setProvider(ProviderInterface $provider)
+    public function setProvider(ProviderInterface $provider): void
     {
         $this->provider = $provider;
         $this->log("Provider changed to: " . $provider->getName());
@@ -379,30 +337,24 @@ class AIEngine
 
     /**
      * Get the current provider.
-     *
-     * @return ProviderInterface The current provider
      */
-    public function getProvider()
+    public function getProvider(): ProviderInterface
     {
         return $this->provider;
     }
 
     /**
      * Get the current provider name.
-     *
-     * @return string The provider name
      */
-    public function getProviderName()
+    public function getProviderName(): string
     {
         return $this->provider->getName();
     }
 
     /**
      * Check if the current provider is properly configured.
-     *
-     * @return bool True if configured
      */
-    public function isConfigured()
+    public function isConfigured(): bool
     {
         return $this->provider->isConfigured();
     }
@@ -410,59 +362,50 @@ class AIEngine
     /**
      * Get configuration value.
      *
-     * @param string $key The configuration key
      * @param mixed $default Default value if key not found
      * @return mixed The configuration value
      */
-    public function getConfig($key, $default = null)
+    public function getConfig(string $key, $default = null)
     {
-        return isset($this->config[$key]) ? $this->config[$key] : $default;
+        return $this->config[$key] ?? $default;
     }
 
     /**
      * Set configuration value.
      *
-     * @param string $key The configuration key
      * @param mixed $value The value to set
      */
-    public function setConfig($key, $value)
+    public function setConfig(string $key, $value): void
     {
         $this->config[$key] = $value;
     }
 
     /**
      * Enable or disable logging.
-     *
-     * @param bool $enable Whether to enable logging
      */
-    public function enableLogging($enable = true)
+    public function enableLogging(bool $enable = true): void
     {
         $this->config['enable_logging'] = $enable;
     }
 
     /**
      * Set a custom logger.
-     *
-     * @param callable $logger The logger function
      */
-    public function setLogger($logger)
+    public function setLogger(callable $logger): void
     {
         $this->logger = $logger;
     }
 
     /**
      * Log a message if logging is enabled.
-     *
-     * @param string $message The message to log
-     * @param string $level The log level (info, error, warning)
      */
-    protected function log($message, $level = 'info')
+    protected function log(string $message, string $level = 'info'): void
     {
         if (!$this->config['enable_logging']) {
             return;
         }
 
-        if ($this->logger && is_callable($this->logger)) {
+        if ($this->logger !== null && is_callable($this->logger)) {
             call_user_func($this->logger, $message, $level);
         } else {
             $timestamp = date('Y-m-d H:i:s');
@@ -472,13 +415,10 @@ class AIEngine
 
     /**
      * Validate prompt before processing.
-     *
-     * @param string $prompt The prompt to validate
-     * @return bool True if valid
      */
-    public function validatePrompt($prompt)
+    public function validatePrompt(string $prompt): bool
     {
-        return is_string($prompt) && !empty(trim($prompt));
+        return !empty(trim($prompt));
     }
 
     /**
@@ -486,7 +426,7 @@ class AIEngine
      *
      * @return array Available provider names
      */
-    public function getAvailableProviders()
+    public function getAvailableProviders(): array
     {
         return ['gemini', 'meta', 'groq'];
     }
@@ -496,7 +436,7 @@ class AIEngine
      *
      * @return array Provider => default model mapping
      */
-    public static function getDefaultModels()
+    public static function getDefaultModels(): array
     {
         return self::$defaultModels;
     }
@@ -504,28 +444,22 @@ class AIEngine
     /**
      * Get available models for a specific provider.
      *
-     * @param string $provider The provider name
      * @return array List of available models
      */
-    public static function getModelsForProvider($provider)
+    public static function getModelsForProvider(string $provider): array
     {
         switch (strtolower($provider)) {
             case 'meta':
             case 'llama':
             case 'meta-llama':
                 return MetaLlama::getAvailableModels();
-            
+
             case 'groq':
                 return Groq::getAvailableModels();
-            
+
             case 'gemini':
             default:
-                return [
-                    'gemini-2.0-flash',
-                    'gemini-2.0-flash-lite',
-                    'gemini-2.5-flash',
-                    'gemini-2.5-pro',
-                ];
+                return Gemini::getAvailableModels();
         }
     }
 }

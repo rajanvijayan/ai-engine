@@ -1,52 +1,44 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AIEngine\Utils;
 
 class ConfigValidator
 {
     /**
      * Validate API key format.
-     *
-     * @param string $apiKey The API key to validate
-     * @return bool True if valid
      */
-    public static function isValidApiKey($apiKey)
+    public static function isValidApiKey(string $apiKey): bool
     {
-        return is_string($apiKey) && !empty(trim($apiKey)) && strlen($apiKey) >= 10;
+        return !empty(trim($apiKey)) && strlen($apiKey) >= 10;
     }
 
     /**
      * Validate timeout value.
      *
-     * @param int $timeout The timeout to validate
-     * @return bool True if valid
+     * @param int|float $timeout The timeout to validate
      */
-    public static function isValidTimeout($timeout)
+    public static function isValidTimeout($timeout): bool
     {
         return is_numeric($timeout) && $timeout > 0 && $timeout <= 300;
     }
 
     /**
      * Validate model name.
-     *
-     * @param string $model The model name to validate
-     * @return bool True if valid
      */
-    public static function isValidModel($model)
+    public static function isValidModel(string $model): bool
     {
-        return is_string($model) && !empty(trim($model)) && preg_match('/^[a-zA-Z0-9\-_]+$/', $model);
+        return !empty(trim($model)) && preg_match('/^[a-zA-Z0-9\-_.]+$/', $model) === 1;
     }
 
     /**
      * Sanitize configuration array.
-     *
-     * @param array $config The configuration array
-     * @return array Sanitized configuration
      */
-    public static function sanitizeConfig($config)
+    public static function sanitizeConfig(array $config): array
     {
         $sanitized = [];
-        
+
         foreach ($config as $key => $value) {
             if (is_string($value)) {
                 $sanitized[$key] = trim($value);
@@ -58,32 +50,31 @@ class ConfigValidator
                 $sanitized[$key] = self::sanitizeConfig($value);
             }
         }
-        
+
         return $sanitized;
     }
 
     /**
      * Validate provider configuration.
      *
-     * @param array $config The provider configuration
-     * @return array Validation results with errors
+     * @return array<string> Validation error messages
      */
-    public static function validateProviderConfig($config)
+    public static function validateProviderConfig(array $config): array
     {
         $errors = [];
-        
-        if (!isset($config['api_key']) || !self::isValidApiKey($config['api_key'])) {
+
+        if (!isset($config['api_key']) || !is_string($config['api_key']) || !self::isValidApiKey($config['api_key'])) {
             $errors[] = 'Invalid or missing API key';
         }
-        
+
         if (isset($config['timeout']) && !self::isValidTimeout($config['timeout'])) {
             $errors[] = 'Invalid timeout value (must be between 1 and 300 seconds)';
         }
-        
-        if (isset($config['model']) && !self::isValidModel($config['model'])) {
+
+        if (isset($config['model']) && is_string($config['model']) && !self::isValidModel($config['model'])) {
             $errors[] = 'Invalid model name';
         }
-        
+
         return $errors;
     }
-} 
+}
