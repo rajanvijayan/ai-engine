@@ -51,9 +51,9 @@ class GroqTest extends TestCase
 
     public function testCustomModel(): void
     {
-        $provider = new Groq($this->dummyApiKey, 'mixtral-8x7b-32768');
+        $provider = new Groq($this->dummyApiKey, 'openai/gpt-oss-120b');
 
-        $this->assertEquals('mixtral-8x7b-32768', $provider->getModel());
+        $this->assertEquals('openai/gpt-oss-120b', $provider->getModel());
     }
 
     public function testSetModel(): void
@@ -71,7 +71,7 @@ class GroqTest extends TestCase
         $this->assertIsArray($models);
         $this->assertNotEmpty($models);
         $this->assertContains('llama-3.3-70b-versatile', $models);
-        $this->assertContains('mixtral-8x7b-32768', $models);
+        $this->assertContains('openai/gpt-oss-120b', $models);
     }
 
     public function testConversationHistoryStartsEmpty(): void

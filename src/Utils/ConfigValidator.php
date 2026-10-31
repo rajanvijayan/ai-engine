@@ -29,7 +29,7 @@ class ConfigValidator
      */
     public static function isValidModel(string $model): bool
     {
-        return !empty(trim($model)) && preg_match('/^[a-zA-Z0-9\-_.]+$/', $model) === 1;
+        return !empty(trim($model)) && preg_match('/^[a-zA-Z0-9\-_.\/]+$/', $model) === 1;
     }
 
     /**

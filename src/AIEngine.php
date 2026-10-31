@@ -8,10 +8,16 @@ use AIEngine\Exceptions\AIEngineException;
 use AIEngine\Exceptions\ApiException;
 use AIEngine\Exceptions\ConfigurationException;
 use AIEngine\Knowledge\KnowledgeBase;
+use AIEngine\Providers\Anthropic;
+use AIEngine\Providers\DeepSeek;
 use AIEngine\Providers\Gemini;
 use AIEngine\Providers\Groq;
 use AIEngine\Providers\MetaLlama;
+use AIEngine\Providers\Mistral;
+use AIEngine\Providers\OpenAI;
+use AIEngine\Providers\OpenAICompatibleProvider;
 use AIEngine\Providers\ProviderInterface;
+use AIEngine\Providers\XAI;
 
 class AIEngine
 {
@@ -25,9 +31,41 @@ class AIEngine
      * Default models for each provider.
      */
     protected static array $defaultModels = [
-        'gemini' => 'gemini-2.0-flash',
-        'meta' => 'Llama-4-Maverick-17B-128E-Instruct-FP8',
-        'groq' => 'llama-3.3-70b-versatile',
+        'gemini' => 'gemini-3.8-flash',
+        'meta' => MetaLlama::DEFAULT_MODEL,
+        'groq' => Groq::DEFAULT_MODEL,
+        'openai' => OpenAI::DEFAULT_MODEL,
+        'anthropic' => Anthropic::DEFAULT_MODEL,
+        'deepseek' => DeepSeek::DEFAULT_MODEL,
+        'mistral' => Mistral::DEFAULT_MODEL,
+        'xai' => XAI::DEFAULT_MODEL,
+    ];
+
+    /**
+     * Provider classes keyed by canonical provider name.
+     *
+     * @var array<string, class-string<Anthropic|Gemini|OpenAICompatibleProvider>>
+     */
+    protected static array $providerClasses = [
+        'gemini' => Gemini::class,
+        'meta' => MetaLlama::class,
+        'groq' => Groq::class,
+        'openai' => OpenAI::class,
+        'anthropic' => Anthropic::class,
+        'deepseek' => DeepSeek::class,
+        'mistral' => Mistral::class,
+        'xai' => XAI::class,
+    ];
+
+    /**
+     * Alternative names accepted for providers.
+     */
+    protected static array $providerAliases = [
+        'llama' => 'meta',
+        'meta-llama' => 'meta',
+        'gpt' => 'openai',
+        'claude' => 'anthropic',
+        'grok' => 'xai',
     ];
 
     /**
@@ -35,7 +73,8 @@ class AIEngine
      *
      * @param string $apiKey The API key for the provider
      * @param array $config Additional configuration options
-     *                      - 'provider': 'gemini', 'meta', or 'groq' (default: 'gemini')
+     *                      - 'provider': 'gemini', 'openai', 'anthropic', 'groq', 'deepseek',
+     *                        'mistral', 'xai', or 'meta' (default: 'gemini')
      *                      - 'model': Model name (optional, uses provider default)
      *                      - 'timeout': Request timeout in seconds (default: 60)
      *                      - 'enable_logging': Enable logging (default: false)
@@ -49,9 +88,9 @@ class AIEngine
             'enable_logging' => false,
         ], $config);
 
-        $provider = strtolower((string) $this->config['provider']);
+        $provider = self::resolveProviderName((string) $this->config['provider']);
         if ($this->config['model'] === null) {
-            $this->config['model'] = self::$defaultModels[$provider] ?? 'gemini-2.0-flash';
+            $this->config['model'] = self::$defaultModels[$provider];
         }
 
         $this->provider = $this->createProvider($provider, $apiKey, (string) $this->config['model'], (int) $this->config['timeout']);
@@ -62,19 +101,20 @@ class AIEngine
      */
     protected function createProvider(string $providerName, string $apiKey, string $model, int $timeout): ProviderInterface
     {
-        switch (strtolower($providerName)) {
-            case 'meta':
-            case 'llama':
-            case 'meta-llama':
-                return new MetaLlama($apiKey, $model, $timeout);
+        $class = self::$providerClasses[self::resolveProviderName($providerName)];
+        return new $class($apiKey, $model, $timeout);
+    }
 
-            case 'groq':
-                return new Groq($apiKey, $model, $timeout);
+    /**
+     * Resolve a provider name or alias to its canonical name.
+     * Unknown names fall back to 'gemini'.
+     */
+    protected static function resolveProviderName(string $providerName): string
+    {
+        $name = strtolower($providerName);
+        $name = self::$providerAliases[$name] ?? $name;
 
-            case 'gemini':
-            default:
-                return new Gemini($apiKey, $model, $timeout);
-        }
+        return isset(self::$providerClasses[$name]) ? $name : 'gemini';
     }
 
     /**
@@ -92,7 +132,7 @@ class AIEngine
     public function switchProvider(string $providerName, string $apiKey, ?string $model = null): void
     {
         if ($model === null) {
-            $model = self::$defaultModels[strtolower($providerName)] ?? 'gemini-2.0-flash';
+            $model = self::$defaultModels[self::resolveProviderName($providerName)];
         }
 
         $this->provider = $this->createProvider($providerName, $apiKey, $model, (int) $this->config['timeout']);
@@ -428,7 +468,7 @@ class AIEngine
      */
     public function getAvailableProviders(): array
     {
-        return ['gemini', 'meta', 'groq'];
+        return array_keys(self::$providerClasses);
     }
 
     /**
@@ -448,18 +488,7 @@ class AIEngine
      */
     public static function getModelsForProvider(string $provider): array
     {
-        switch (strtolower($provider)) {
-            case 'meta':
-            case 'llama':
-            case 'meta-llama':
-                return MetaLlama::getAvailableModels();
-
-            case 'groq':
-                return Groq::getAvailableModels();
-
-            case 'gemini':
-            default:
-                return Gemini::getAvailableModels();
-        }
+        $class = self::$providerClasses[self::resolveProviderName($provider)];
+        return $class::getAvailableModels();
     }
 }

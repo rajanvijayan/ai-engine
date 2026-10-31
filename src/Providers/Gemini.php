@@ -19,7 +19,7 @@ class Gemini implements ProviderInterface
     protected ?KnowledgeBase $knowledgeBase = null;
     protected int $maxKnowledgeChars = 8000;
 
-    public function __construct(string $api_key, string $model = 'gemini-2.0-flash', int $timeout = 60)
+    public function __construct(string $api_key, string $model = 'gemini-3.8-flash', int $timeout = 60)
     {
         $this->api_key = $api_key;
         $this->model = $model;
@@ -316,10 +316,15 @@ class Gemini implements ProviderInterface
     public static function getAvailableModels(): array
     {
         return [
-            'gemini-2.0-flash',
-            'gemini-2.0-flash-lite',
-            'gemini-2.5-flash',
+            'gemini-3.8-flash',
+            'gemini-3.6-flash',
+            'gemini-3.5-flash-lite',
+            'gemini-3.1-flash-lite',
+            'gemini-3.1-pro-preview',
+            'gemini-3-flash-preview',
             'gemini-2.5-pro',
+            'gemini-2.5-flash',
+            'gemini-2.5-flash-lite',
         ];
     }
 }
