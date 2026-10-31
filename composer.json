@@ -1,8 +1,8 @@
 {
     "name": "rajanvijayan/ai-engine",
-    "description": "Multi-provider AI library for PHP - supports Gemini, Meta Llama, and Groq",
+    "description": "Multi-provider AI library for PHP - supports OpenAI, Anthropic Claude, Gemini, xAI Grok, DeepSeek, Mistral, Groq, and Meta Llama",
     "type": "library",
-    "keywords": ["ai", "gemini", "llama", "groq", "chatbot", "conversation"],
+    "keywords": ["ai", "llm", "openai", "gpt", "anthropic", "claude", "gemini", "xai", "grok", "deepseek", "mistral", "groq", "llama", "rag", "chatbot", "conversation"],
     "autoload": {
         "psr-4": {
             "AIEngine\\": "src/"

@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-10-31
+
+### Added
+- **OpenAI** provider (`openai`, alias `gpt`) — GPT-6.1 Sol (default), GPT-6 Astra, GPT-6.1 Terra, GPT-6 Luna
+- **Anthropic** provider (`anthropic`, alias `claude`) — Claude Opus 5.5 (default), Sonnet 5.5, Haiku 5.5, Fable 5.1
+  - `setMaxTokens()` (default 16000) and `enableFallbacks()`; server-side refusal fallbacks enabled by default on supported models
+- **xAI** provider (`xai`, alias `grok`) — Grok 4.7 (default) and Grok 4.x models
+- **DeepSeek** provider (`deepseek`) — DeepSeek V4.1 Flash (default) and V4 Pro
+- **Mistral** provider (`mistral`) — Mistral Large/Medium/Small, Ministral, Codestral
+- `OpenAICompatibleProvider` abstract base class: add any OpenAI-compatible API in a few lines
+- `DEFAULT_MODEL` constant on OpenAI-compatible providers and `Anthropic`
+- README header banner, badges, and docs for all providers
+- Tests for new providers and provider aliases (230 tests, 475 assertions)
+
+### Changed
+- **Gemini default model is now `gemini-3.8-flash`** — `gemini-2.0-flash` has been shut down by Google
+- Gemini model list updated to Gemini 3.x and 2.5 models
+- Groq model list updated (removed retired Mixtral, Gemma 2 and Llama 3.2 preview models; added GPT-OSS, Qwen and others)
+- `Groq` and `MetaLlama` now extend `OpenAICompatibleProvider` (public API unchanged)
+- `AIEngine` resolves providers through a single registry; unknown names still fall back to Gemini
+- `ConfigValidator::isValidModel()` accepts `/` in model names (e.g. `openai/gpt-oss-120b`)
+- `test.php` lists every provider with a configured key, each with an optional RAG mode
+
 ## [2.0.0] - 2026-03-18
 
 ### Added

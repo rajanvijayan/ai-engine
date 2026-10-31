@@ -46,7 +46,7 @@ class GeminiTest extends TestCase
     {
         $provider = new Gemini($this->dummyApiKey);
 
-        $this->assertEquals('gemini-2.0-flash', $provider->getModel());
+        $this->assertEquals('gemini-3.8-flash', $provider->getModel());
     }
 
     public function testCustomModel(): void
@@ -197,7 +197,7 @@ class GeminiTest extends TestCase
 
         $this->assertIsArray($models);
         $this->assertNotEmpty($models);
-        $this->assertContains('gemini-2.0-flash', $models);
+        $this->assertContains('gemini-3.8-flash', $models);
         $this->assertContains('gemini-2.5-pro', $models);
     }
 

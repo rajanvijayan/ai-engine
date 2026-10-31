@@ -3,7 +3,7 @@
  * Interactive AI Engine Test
  * 
  * Simple interactive test for chatting with AI providers
- * Supports Knowledge Base (RAG) for Groq provider
+ * Supports Knowledge Base (RAG) for all providers
  */
 
 require_once 'vendor/autoload.php';
@@ -36,15 +36,23 @@ function prompt($message) {
 $keys = loadKeys();
 $availableProviders = [];
 
-if (isValidKey($keys['gemini'] ?? null)) {
-    $availableProviders['1'] = ['name' => 'Gemini', 'key' => 'gemini'];
-}
-if (isValidKey($keys['meta'] ?? null)) {
-    $availableProviders['2'] = ['name' => 'Meta Llama', 'key' => 'meta'];
-}
-if (isValidKey($keys['groq'] ?? null)) {
-    $availableProviders['3'] = ['name' => 'Groq (Llama)', 'key' => 'groq'];
-    $availableProviders['4'] = ['name' => 'Groq + Knowledge Base (RAG)', 'key' => 'groq', 'rag' => true];
+$providerNames = [
+    'openai' => 'OpenAI (GPT)',
+    'anthropic' => 'Anthropic (Claude)',
+    'gemini' => 'Google Gemini',
+    'xai' => 'xAI (Grok)',
+    'deepseek' => 'DeepSeek',
+    'mistral' => 'Mistral',
+    'groq' => 'Groq',
+    'meta' => 'Meta Llama',
+];
+
+$num = 1;
+foreach ($providerNames as $key => $name) {
+    if (isValidKey($keys[$key] ?? null)) {
+        $availableProviders[(string) $num++] = ['name' => $name, 'key' => $key];
+        $availableProviders[(string) $num++] = ['name' => "{$name} + Knowledge Base (RAG)", 'key' => $key, 'rag' => true];
+    }
 }
 
 clearScreen();
@@ -56,14 +64,21 @@ if (empty($availableProviders)) {
     echo "❌ No API keys configured!\n\n";
     echo "Please edit test.ai-key with your API keys:\n";
     echo "{\n";
-    echo "    \"gemini\": \"your-key\",\n";
-    echo "    \"meta\": \"your-key\",\n";
-    echo "    \"groq\": \"your-key\"\n";
+    $lines = [];
+    foreach (array_keys($providerNames) as $key) {
+        $lines[] = "    \"{$key}\": \"your-key\"";
+    }
+    echo implode(",\n", $lines) . "\n";
     echo "}\n\n";
     echo "Get keys from:\n";
-    echo "  - Gemini: https://makersuite.google.com/app/apikey\n";
-    echo "  - Meta:   https://llama.meta.com\n";
-    echo "  - Groq:   https://console.groq.com (FREE!)\n";
+    echo "  - OpenAI:    https://platform.openai.com/api-keys\n";
+    echo "  - Anthropic: https://platform.claude.com/settings/keys\n";
+    echo "  - Gemini:    https://aistudio.google.com/app/apikey\n";
+    echo "  - xAI:       https://console.x.ai\n";
+    echo "  - DeepSeek:  https://platform.deepseek.com/api_keys\n";
+    echo "  - Mistral:   https://console.mistral.ai/api-keys\n";
+    echo "  - Groq:      https://console.groq.com (FREE!)\n";
+    echo "  - Meta:      https://llama.meta.com\n";
     exit(1);
 }
 

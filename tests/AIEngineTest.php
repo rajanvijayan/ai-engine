@@ -9,6 +9,7 @@ use AIEngine\Exceptions\ConfigurationException;
 use AIEngine\Providers\Gemini;
 use AIEngine\Providers\Groq;
 use AIEngine\Providers\MetaLlama;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class AIEngineTest extends TestCase
@@ -76,6 +77,53 @@ class AIEngineTest extends TestCase
         $this->assertContains('gemini', $providers);
         $this->assertContains('meta', $providers);
         $this->assertContains('groq', $providers);
+        $this->assertContains('openai', $providers);
+        $this->assertContains('anthropic', $providers);
+        $this->assertContains('deepseek', $providers);
+        $this->assertContains('mistral', $providers);
+        $this->assertContains('xai', $providers);
+    }
+
+    /**
+     * @return array<string, array{string, string, string}>
+     */
+    public static function providerAliases(): array
+    {
+        return [
+            'openai' => ['openai', 'OpenAI', 'gpt-6.1-sol'],
+            'gpt' => ['gpt', 'OpenAI', 'gpt-6.1-sol'],
+            'anthropic' => ['anthropic', 'Anthropic', 'claude-opus-5-5'],
+            'claude' => ['claude', 'Anthropic', 'claude-opus-5-5'],
+            'deepseek' => ['deepseek', 'DeepSeek', 'deepseek-flash'],
+            'mistral' => ['mistral', 'Mistral', 'mistral-large-latest'],
+            'xai' => ['xai', 'xAI', 'grok-4.7'],
+            'grok' => ['Grok', 'xAI', 'grok-4.7'],
+            'llama' => ['llama', 'MetaLlama', 'Llama-4-Maverick-17B-128E-Instruct-FP8'],
+            'unknown falls back to gemini' => ['unknown', 'Gemini', 'gemini-3.8-flash'],
+        ];
+    }
+
+    /**
+     * @dataProvider providerAliases
+     */
+    #[DataProvider('providerAliases')]
+    public function testCreateProviderByAlias(string $alias, string $expectedName, string $expectedModel): void
+    {
+        $engine = AIEngine::create($alias, $this->dummyApiKey);
+
+        $this->assertEquals($expectedName, $engine->getProviderName());
+        $this->assertEquals($expectedModel, $engine->getProvider()->getModel());
+        $this->assertNotEmpty(AIEngine::getModelsForProvider($alias));
+    }
+
+    public function testSwitchProviderUsesNewDefaultModel(): void
+    {
+        $engine = new AIEngine($this->dummyApiKey);
+
+        $engine->switchProvider('claude', $this->dummyApiKey);
+
+        $this->assertEquals('Anthropic', $engine->getProviderName());
+        $this->assertEquals('claude-opus-5-5', $engine->getConfig('model'));
     }
 
     public function testGetDefaultModels(): void
